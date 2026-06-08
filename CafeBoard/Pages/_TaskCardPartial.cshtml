@@ -1,0 +1,102 @@
+﻿@model CafeBoard.Models.CafeTask
+
+<div class="card border-0 shadow-sm rounded-2 mb-2 p-3 task-card
+     @(Model.Priority == "Kritik" ? "border-start border-danger border-4" :
+                 Model.Priority == "Yüksek" ? "border-start border-warning border-4" :
+                 Model.Priority == "Normal" ? "border-start border-primary border-4" : "border-start border-secondary border-4")"
+     data-id="@Model.TaskId"
+     draggable="@(Model.Status == "Done" ? "false" : "true")"
+     style="@(Model.Status == "Done" ? "opacity: 0.8; cursor: not-allowed;" : "")">
+
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <h6 class="fw-bold text-dark mb-0 task-title-click text-hover-underline @(Model.Status == "Done" ? "text-decoration-line-through text-muted" : "")"
+            style="font-size:0.95rem; cursor: pointer;"
+            data-id="@Model.TaskId"
+            data-title="@Model.Title">
+            @Model.Title
+        </h6>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge @(Model.Priority == "Kritik" ? "bg-danger text-white pulse-animation" :
+                                                     Model.Priority == "Yüksek" ? "bg-warning text-dark" :
+                                                     Model.Priority == "Normal" ? "bg-primary-subtle text-primary" : "bg-light text-secondary border")" style="font-size:0.7rem;">
+                @Model.Priority
+            </span>
+
+            @if (Model.Status != "Done")
+            {
+                <form method="post" asp-page-handler="DeleteTask" asp-route-taskId="@Model.TaskId" onsubmit="return confirm('Bu görevi silmek istediğinize emin misiniz?');" class="m-0 p-0">
+                    <button type="submit" class="btn btn-link text-danger p-0 m-0 border-0 bg-transparent"><i class="bi bi-trash3 small"></i></button>
+                </form>
+            }
+        </div>
+    </div>
+
+    <p class="text-muted mb-3" style="font-size: 0.8rem; line-height:1.4;">@Model.Description</p>
+
+    <div class="d-flex justify-content-between align-items-center mt-auto border-top pt-2">
+        <div class="d-flex align-items-center">
+            <span class="badge bg-light text-dark border rounded-pill small me-2" title="Atanan Geliştirici">
+                <i class="bi bi-person-circle text-primary"></i> @(Model.Developer?.FullName.Split(' ')[0] ?? "Atanmadı")
+            </span>
+            <span class="badge bg-dark-subtle text-dark border border-dark-subtle rounded-pill" style="font-size: 0.7rem; font-weight:700;" title="Zorluk Puanı">@Model.StoryPoints SP</span>
+        </div>
+
+        <div class="text-end">
+            @if (Model.Deadline.HasValue && Model.Status != "Done")
+            {
+                var kalanGun = (Model.Deadline.Value.Date - DateTime.Now.Date).Days;
+
+                if (kalanGun < 0)
+                {
+                    <span class="text-danger fw-bold small" style="font-size:0.75rem;">
+                        <i class="bi bi-exclamation-octagon-fill"></i> GECİKTİ (@Math.Abs(kalanGun) Gün)
+                    </span>
+                }
+                else if (kalanGun == 0)
+                {
+                    <span class="text-warning fw-bold small" style="font-size:0.75rem;">
+                        <i class="bi bi-fire"></i> BUGÜN BİTMELİ!
+                    </span>
+                }
+                else
+                {
+                    <span class="text-muted small" style="font-size: 0.75rem;">
+                        <i class="bi bi-calendar-event text-secondary"></i> @Model.Deadline.Value.ToString("dd MMM") (@kalanGun Gün Kaldı)
+                    </span>
+                }
+            }
+            else if (Model.Status == "Done")
+            {
+                <span class="badge bg-success-subtle text-success border border-success rounded-pill">
+                    <i class="bi bi-check2-all"></i> Tamamlandı
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-hover-underline:hover {
+        text-decoration: underline !important;
+        color: #0d6efd !important;
+    }
+
+    .pulse-animation {
+        animation: pulse-red 1.5s infinite;
+    }
+
+    @@keyframes pulse-red {
+        0% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+</style>

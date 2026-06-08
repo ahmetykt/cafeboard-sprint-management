@@ -1,0 +1,352 @@
+@page
+@model CafeBoard.Pages.IndexModel
+@{
+    ViewData["Title"] = "CafeBoard | Kurumsal Çevik Ekosistem";
+}
+
+@Html.AntiForgeryToken()
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<div class="container-fluid mt-4 mb-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded-3 shadow-sm border-start border-primary border-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="bi bi-kanban-fill text-primary me-2"></i> CafeERP Geliştirme Panosu
+            </h3>
+            <p class="text-muted mb-0 small">
+                <i class="bi bi-people-fill me-1"></i> Takım: Ahmet Yakut & Ekibi |
+                <i class="bi bi-calendar-range ms-2 me-1"></i> Toplam Proje Süresi: <strong>4 Hafta (4 Sprint)</strong> |
+                <i class="bi bi-arrow-repeat ms-2 me-1"></i>
+                Aktif Koşu: <strong class="text-primary fs-6">@Model.ActiveSprint.SprintName</strong>
+            </p>
+        </div>
+
+        <div class="text-end d-flex align-items-center">
+            <form method="get" class="me-3 mb-0">
+                <div class="input-group shadow-sm">
+                    <button type="submit" class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></button>
+                    <input type="text" asp-for="SearchQuery" class="form-control border-start-0" placeholder="Görevlerde arayın...">
+                    @if (!string.IsNullOrEmpty(Model.SearchQuery))
+                    {
+                        <a href="/" class="btn btn-outline-danger"><i class="bi bi-x-circle"></i></a>
+                    }
+                </div>
+            </form>
+
+            <a href="/Dashboard" class="btn btn-dark btn-sm rounded-1 fw-bold px-3 py-2 shadow-sm me-2">
+                <i class="bi bi-graph-up-arrow me-1"></i> Dashboard (Analitik)
+            </a>
+
+
+
+            <button type="button" class="btn btn-primary btn-sm rounded-1 fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                + Yeni Görev
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4" style="overflow-x: auto; flex-wrap: nowrap;">
+
+        <div class="col-md-4" style="min-width: 350px;">
+            <div class="bg-light rounded-3 p-2 min-vh-100" style="background-color: #f4f5f7 !important;">
+                <h6 class="fw-bold text-secondary mb-3 p-2 text-uppercase" style="font-size:0.8rem;">
+                    YAPILACAKLAR <span class="badge bg-secondary rounded-pill ms-1 column-counter">@Model.TodoTasks.Count</span>
+                </h6>
+                <div class="kanban-column" data-status="To-Do" style="min-height: 200px; display: flex; flex-direction: column; gap: 4px;">
+                    @foreach (var task in Model.TodoTasks)
+                    {
+                        <partial name="_TaskCardPartial" model="task" />
+                    }
+                </div>
+                <div class="p-2 text-muted fw-bold" style="cursor:pointer; font-size:0.9rem;" data-bs-toggle="modal" data-bs-target="#createTaskModal"><i class="bi bi-plus"></i> Görev Oluştur</div>
+            </div>
+        </div>
+
+        <div class="col-md-4" style="min-width: 350px;">
+            <div class="bg-light rounded-3 p-2 min-vh-100" style="background-color: #f4f5f7 !important;">
+                <h6 class="fw-bold text-secondary mb-3 p-2 text-uppercase" style="font-size:0.8rem;">
+                    DEVAM EDİYOR <span class="badge bg-primary rounded-pill ms-1 column-counter">@Model.InProgressTasks.Count</span>
+                </h6>
+                <div class="kanban-column" data-status="In Progress" style="min-height: 200px; display: flex; flex-direction: column; gap: 4px;">
+                    @foreach (var task in Model.InProgressTasks)
+                    {
+                        <partial name="_TaskCardPartial" model="task" />
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4" style="min-width: 350px;">
+            <div class="bg-light rounded-3 p-2 min-vh-100" style="background-color: #f4f5f7 !important;">
+                <h6 class="fw-bold text-secondary mb-3 p-2 text-uppercase" style="font-size:0.8rem;">
+                    TAMAMLANDI <i class="bi bi-check2 text-success ms-1"></i> <span class="badge bg-success rounded-pill ms-1 column-counter">@Model.DoneTasks.Count</span>
+                </h6>
+                <div class="kanban-column" data-status="Done" style="min-height: 200px; display: flex; flex-direction: column; gap: 4px;">
+                    @foreach (var task in Model.DoneTasks)
+                    {
+                        <partial name="_TaskCardPartial" model="task" />
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="createTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <form method="post" asp-page-handler="CreateTask">
+                <div class="modal-header bg-light border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold">Yeni Görev Oluştur</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">GÖREV BAŞLIĞI</label>
+                        <input type="text" asp-for="NewTask.Title" class="form-control" required placeholder="Görevin adını girin..." />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small">AÇIKLAMA</label>
+                        <textarea asp-for="NewTask.Description" class="form-control" rows="3" placeholder="Görevin detaylarını yazın..."></textarea>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small">GÖREV TİPİ</label>
+                            <select asp-for="NewTask.TaskType" class="form-select">
+                                <option value="Feature">🚀 Yeni Özellik (Feature)</option>
+                                <option value="Bug">🐛 Hata Çözümü (Bug Fix)</option>
+                                <option value="Task">🛠 Teknik İş (Task)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-muted small">ÖNCELİK DURUMU</label>
+                            <select asp-for="NewTask.Priority" class="form-select">
+                                <option value="Düşük">🔽 Düşük</option>
+                                <option value="Normal" selected>⏺ Normal</option>
+                                <option value="Yüksek">🔼 Yüksek</option>
+                                <option value="Kritik">🔥 Kritik</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">KİME ATANACAK?</label>
+                            <select asp-for="NewTask.DeveloperId" asp-items="Model.DeveloperList" class="form-select" required>
+                                <option value="">Seçiniz...</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">ZORLUK PUANI (SP)</label>
+                            <select asp-for="NewTask.StoryPoints" class="form-select">
+                                <option value="1">1 SP (Çok Kolay)</option>
+                                <option value="2">2 SP (Kolay)</option>
+                                <option value="3" selected>3 SP (Orta)</option>
+                                <option value="5">5 SP (Zor)</option>
+                                <option value="8">8 SP (Çok Zor)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-muted small">BAŞLANGIÇ TARİHİ</label>
+                            <input type="date" asp-for="NewTask.StartDate" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-danger small">BİTİŞ TARİHİ</label>
+                            <input type="date" asp-for="NewTask.Deadline" class="form-control border-danger" required />
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-light border-top-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary fw-bold">Oluştur</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content border-0 shadow-lg" style="min-height: 80vh;">
+            <div class="modal-header bg-dark text-white border-bottom-0 p-4">
+                <h5 class="modal-title fw-bold" id="detailModalTitle"><i class="bi bi-card-text me-2"></i> Görev Yükleniyor...</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light p-0">
+                <div class="row g-0 h-100">
+
+                    <div class="col-md-8 p-4 bg-white border-end h-100">
+                        <h6 class="fw-bold text-dark mb-4"><i class="bi bi-chat-left-dots-fill text-primary me-2"></i> Takım İletişimi (Yorumlar)</h6>
+
+                        <div id="commentSection" style="max-height: 450px; overflow-y: auto; padding-right: 15px; margin-bottom:20px;"></div>
+
+                        <div class="mt-4 p-3 bg-light rounded-3 border">
+                            <label class="form-label fw-bold small text-muted">Hızlı Yorum Ekle</label>
+                            <input type="hidden" id="activeTaskId" />
+                            <div class="input-group mb-2">
+                                <select id="commentAuthorId" asp-items="Model.DeveloperList" class="form-select" style="max-width: 250px;">
+                                    <option value="">Kim Olarak Yorum Yapıyorsun?</option>
+                                </select>
+                            </div>
+                            <textarea id="commentText" class="form-control mb-2" rows="2" placeholder="Takımla paylaşmak istediklerini yaz..."></textarea>
+                            <div class="text-end">
+                                <button onclick="postComment()" class="btn btn-primary fw-bold"><i class="bi bi-send-fill me-1"></i> Gönder</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 p-4 bg-light h-100">
+                        <h6 class="fw-bold text-secondary mb-4 text-uppercase" style="font-size: 0.85rem;">
+                            <i class="bi bi-clock-history me-1"></i> Zaman Tüneli (Log)
+                        </h6>
+                        <div id="logTimeline" style="display: flex; flex-direction: column; gap: 12px; max-height: 600px; overflow-y: auto; padding-right:10px;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+    const columns = document.querySelectorAll('.kanban-column');
+    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+    columns.forEach(col => {
+        new Sortable(col, {
+            group: 'shared', animation: 150, ghostClass: 'bg-info-subtle',
+            onEnd: function (evt) {
+                if (evt.to === evt.from) return;
+
+                const taskId = evt.item.getAttribute('data-id');
+                const newStatus = evt.to.getAttribute('data-status');
+
+                fetch(window.location.pathname + `?handler=UpdateStatus&taskId=${taskId}&newStatus=${newStatus}`, {
+                    method: 'POST', headers: { "RequestVerificationToken": token, "Content-Type": "application/json" }
+                }).then(response => { if (response.ok) location.reload(); });
+            }
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('task-title-click')) {
+            const taskId = e.target.getAttribute('data-id');
+            const title = e.target.getAttribute('data-title');
+            openLogModal(taskId, title);
+        }
+    });
+
+    function openLogModal(taskId, title) {
+        document.getElementById('detailModalTitle').innerHTML = `<i class="bi bi-kanban me-2"></i> ${title}`;
+        document.getElementById('activeTaskId').value = taskId;
+
+        const timeline = document.getElementById('logTimeline');
+        const comments = document.getElementById('commentSection');
+
+        timeline.innerHTML = '<div class="text-center text-muted small py-3">Loglar aranıyor...</div>';
+        comments.innerHTML = '<div class="text-center text-muted small py-3">Yorumlar yükleniyor...</div>';
+
+        var myModal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
+        myModal.show();
+
+        loadTaskData(taskId);
+    }
+
+    function loadTaskData(taskId) {
+        fetch(window.location.pathname + `?handler=TaskFullDetails&taskId=${taskId}`)
+            .then(res => res.json())
+            .then(data => {
+                const timeline = document.getElementById('logTimeline');
+                timeline.innerHTML = "";
+                if(data.logs.length === 0) timeline.innerHTML = '<div class="small text-muted">Kayıt yok.</div>';
+                data.logs.forEach(log => {
+                    timeline.innerHTML += `
+                        <div class="p-2 bg-white rounded-2 shadow-sm border-start border-secondary border-3 mb-2">
+                            <p class="mb-1 text-dark small" style="font-size:0.8rem;">${log.msg}</p>
+                            <span class="text-muted d-block text-end" style="font-size:0.65rem;">${log.date}</span>
+                        </div>`;
+                });
+
+                const comments = document.getElementById('commentSection');
+                comments.innerHTML = "";
+                if(data.comments.length === 0) comments.innerHTML = '<div class="text-muted small text-center my-5"><i class="bi bi-chat-square-text fs-3 d-block mb-2"></i>Bu göreve henüz yorum yapılmamış. İlk yazan sen ol!</div>';
+                data.comments.forEach(c => {
+                    comments.innerHTML += `
+                        <div class="d-flex mb-4">
+                            <div class="me-3">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px;">
+                                    ${c.author.charAt(0)}
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 bg-light p-3 rounded-3 position-relative shadow-sm border">
+                                <h6 class="fw-bold mb-1" style="font-size:0.9rem;">${c.author} <span class="badge bg-secondary ms-2 fw-normal" style="font-size:0.65rem;">${c.role}</span></h6>
+                                <p class="mb-1 text-dark" style="font-size:0.9rem;">${c.text}</p>
+                                <span class="text-muted position-absolute bottom-0 end-0 p-2" style="font-size:0.65rem;">${c.date}</span>
+                            </div>
+                        </div>`;
+                });
+            });
+    }
+
+    function postComment() {
+        const taskId = document.getElementById('activeTaskId').value;
+        const devId = document.getElementById('commentAuthorId').value;
+        const text = document.getElementById('commentText').value;
+
+        if(!devId) { alert("Lütfen kim olarak yorum yaptığını seç!"); return; }
+        if(!text.trim()) { alert("Yorum alanı boş olamaz!"); return; }
+
+        const formData = new FormData();
+        formData.append('taskId', taskId);
+        formData.append('developerId', devId);
+        formData.append('commentText', text);
+
+        fetch(window.location.pathname + `?handler=AddComment`, {
+            method: 'POST',
+            headers: { "RequestVerificationToken": token },
+            body: formData
+        }).then(res => res.json()).then(data => {
+            if(data.success) {
+                document.getElementById('commentText').value = "";
+                loadTaskData(taskId);
+            } else {
+                alert("Yorum gönderilemedi!");
+            }
+        });
+    }
+</script>
+
+<style>
+    body {
+        background-color: #ffffff;
+    }
+
+    .task-card {
+        transition: all 0.2s ease;
+        cursor: grab;
+    }
+
+        .task-card:active {
+            cursor: grabbing;
+        }
+
+        .task-card:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-2px);
+        }
+</style>

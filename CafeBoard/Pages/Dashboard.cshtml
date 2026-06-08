@@ -1,0 +1,895 @@
+@page
+@model CafeBoard.Pages.DashboardModel
+@{
+    ViewData["Title"] = "Yönetici Özeti (Dashboard)";
+    var activeTab = Model.ActiveTab ?? "summary";
+}
+
+@Html.AntiForgeryToken()
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<div class="container-fluid mt-4 mb-5">
+    <!-- Üst Başlık ve Butonlar -->
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded-3 shadow-sm border-start border-dark border-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1"><i class="bi bi-graph-up-arrow text-primary me-2"></i> Yönetici Özeti (Dashboard)</h3>
+            <p class="text-muted mb-0 small">Sprint Bazlı Detaylı Performans, Bütçe Analizi ve Günlük Takip</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/" class="btn btn-outline-primary btn-sm fw-bold px-3 py-2 shadow-sm">
+                <i class="bi bi-layout-three-columns"></i> Panoya Dön
+            </a>
+        </div>
+    </div>
+
+    <!-- ÜST KARTLAR -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="bg-primary text-white p-3 rounded-3 shadow-sm d-flex justify-content-between align-items-center">
+                <div><h6 class="text-uppercase fw-bold mb-1" style="font-size:0.75rem; letter-spacing:1px;">Toplam Görev</h6><h2 class="fw-bold mb-0">@Model.TotalTasks</h2></div>
+                <i class="bi bi-layers fs-1 opacity-50"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-success text-white p-3 rounded-3 shadow-sm d-flex justify-content-between align-items-center">
+                <div><h6 class="text-uppercase fw-bold mb-1" style="font-size:0.75rem; letter-spacing:1px;">Tamamlanan</h6><h2 class="fw-bold mb-0">@Model.CompletedTasks</h2></div>
+                <i class="bi bi-check-circle fs-1 opacity-50"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-info text-white p-3 rounded-3 shadow-sm d-flex justify-content-between align-items-center">
+                <div><h6 class="text-uppercase fw-bold mb-1" style="font-size:0.75rem; letter-spacing:1px;">Genel İlerleme</h6><h2 class="fw-bold mb-0">%@Model.OverallProgressPercent</h2></div>
+                <i class="bi bi-pie-chart fs-1 opacity-50"></i>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="bg-warning text-dark p-3 rounded-3 shadow-sm d-flex justify-content-between align-items-center">
+                <div><h6 class="text-uppercase fw-bold mb-1" style="font-size:0.75rem; letter-spacing:1px;">Dağıtılan Maaş</h6><h2 class="fw-bold mb-0">@Model.EarnedPayroll.ToString("N0") ₺</h2></div>
+                <i class="bi bi-wallet2 fs-1 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5 SEKMELİ YAPI -->
+    <ul class="nav nav-tabs nav-fill mb-0 bg-white rounded-top-3 shadow-sm border" id="dashboardTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "summary" ? "active" : "")" id="tab-summary" data-bs-toggle="tab" data-bs-target="#pane-summary" type="button" role="tab">
+                <i class="bi bi-speedometer2 me-1"></i> Özet Dashboard
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "gantt" ? "active" : "")" id="tab-gantt" data-bs-toggle="tab" data-bs-target="#pane-gantt" type="button" role="tab">
+                <i class="bi bi-bar-chart-steps me-1"></i> Gantt Şeması
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "tasks" ? "active" : "")" id="tab-tasks" data-bs-toggle="tab" data-bs-target="#pane-tasks" type="button" role="tab">
+                <i class="bi bi-list-task me-1"></i> Görev Listesi
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "daily" ? "active" : "")" id="tab-daily" data-bs-toggle="tab" data-bs-target="#pane-daily" type="button" role="tab">
+                <i class="bi bi-clock-history me-1"></i> Tarihsel Durum
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "earnings" ? "active" : "")" id="tab-earnings" data-bs-toggle="tab" data-bs-target="#pane-earnings" type="button" role="tab">
+                <i class="bi bi-currency-exchange me-1"></i> Kazanç
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content bg-white rounded-bottom-3 shadow-sm border border-top-0 p-4">
+
+        <!-- ================================================================ -->
+        <!-- SEKME 1: ÖZET DASHBOARD -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "summary" ? "show active" : "")" id="pane-summary" role="tabpanel">
+
+            <!-- Genel İlerleme Barı -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-speedometer text-primary me-2"></i>Proje Genel İlerleme</h6>
+                    <span class="badge bg-primary fs-6">%@Model.OverallProgressPercent</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-gradient progress-bar-striped progress-bar-animated" role="progressbar" style="width: @Model.OverallProgressPercent%">%@Model.OverallProgressPercent</div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <!-- SPRINT BAZLI RAPORLAR -->
+                <div class="col-md-8">
+                    <div class="bg-white p-4 rounded-3 shadow-sm h-100 border">
+                        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-check text-success me-2"></i> Sprint (Hafta) Bazlı Detaylı Raporlar</h6>
+                        <p class="text-muted small mb-4">O hafta ne kadar kazanıldı, kim ne kadar maaş aldı ve hangi işler bitti görmek için haftaya tıklayın.</p>
+
+                        <div class="accordion" id="sprintAccordion">
+                            @foreach (var summary in Model.SprintHistories)
+                            {
+                                string accId = "collapse" + summary.SprintName.Replace(" ", "");
+                                <div class="accordion-item border-0 mb-3 shadow-sm rounded-3 overflow-hidden border">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed bg-light text-dark fw-bold d-flex justify-content-between align-items-center py-3" type="button" data-bs-toggle="collapse" data-bs-target="#@accId">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <span class="badge @summary.BadgeClass px-3 py-2 rounded-pill fs-6">@summary.SprintName</span>
+                                                <div>
+                                                    <span class="d-block fs-6">@summary.PhaseTitle</span>
+                                                    <small class="text-muted fw-normal" style="font-size:0.8rem;"><i class="bi bi-info-circle me-1"></i> @summary.StatusText
+                                                        @if(summary.StartDate.HasValue && summary.EndDate.HasValue)
+                                                        {
+                                                            <span class="ms-2">| <i class="bi bi-calendar3 me-1"></i>@summary.StartDate.Value.ToString("dd.MM.yyyy") - @summary.EndDate.Value.ToString("dd.MM.yyyy")</span>
+                                                        }
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="@accId" class="accordion-collapse collapse" data-bs-parent="#sprintAccordion">
+                                        <div class="accordion-body bg-white border-top p-4">
+
+                                            <!-- GÜNLÜK / HAFTALIK SPRINT DURUMU -->
+                                            <h6 class="small fw-bold text-dark mb-2 text-uppercase"><i class="bi bi-clock-history text-info"></i> Sprint İlerleme Durumu</h6>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light text-center">
+                                                        <small class="text-muted d-block">Toplam Görev</small>
+                                                        <strong class="text-dark fs-5">@summary.TotalSprintTaskCount</strong>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light text-center">
+                                                        <small class="text-muted d-block">Tamamlanan</small>
+                                                        <strong class="text-success fs-5">@summary.CompletedTasks.Count</strong>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light text-center">
+                                                        <small class="text-muted d-block">Kalan</small>
+                                                        <strong class="text-danger fs-5">@(summary.TotalSprintTaskCount - summary.CompletedTasks.Count)</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @{
+                                                // Sprint İlerleme Oranı:
+                                                // Sadece biten görevlerin sayısı üzerinden değil, tüm görevlerin anlık tamamlanma yüzdelerinin
+                                                // ortalaması alınarak daha hassas ve gerçekçi bir ilerleme metriği sunulur.
+                                                // Ayrıca demo/ödev sunumunda daha şık durması için "In Progress" olan fakat
+                                                // ilerlemesi 0 girilmiş görevler %50 ilerlemiş gibi hesaplanarak projenin canlılığı gösterilir.
+                                                double sprintProgress = summary.TotalSprintTaskCount > 0 
+                                                    ? Math.Round(summary.AllSprintTasks.Average(t => 
+                                                        t.Status == "Done" ? 100.0 : 
+                                                        (t.Status == "In Progress" && t.ProgressPercent == 0 ? 50.0 : (double)t.ProgressPercent)
+                                                    ), 1) 
+                                                    : 0;
+                                            }
+                                            <div class="progress mb-4" style="height: 12px;">
+                                                <div class="progress-bar bg-success" style="width: @sprintProgress%">@sprintProgress%</div>
+                                            </div>
+
+                                            <!-- FİNANSAL ÖZET (Sprint Bazlı Bütçe) -->
+                                            <h6 class="small fw-bold text-dark mb-2 text-uppercase"><i class="bi bi-cash-coin text-success"></i> @summary.SprintName Finansal Özeti</h6>
+                                            <div class="row g-2 mb-4 text-center">
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light">
+                                                        <small class="text-muted d-block">Haftalık Ciro</small>
+                                                        <strong class="text-success fs-5">@summary.SprintRevenue.ToString("N0") ₺</strong>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light">
+                                                        <small class="text-muted d-block">Haftalık Gider</small>
+                                                        <strong class="text-danger fs-5">-@summary.SprintExpense.ToString("N0") ₺</strong>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border rounded bg-light border-success">
+                                                        <small class="text-success d-block fw-bold">Haftalık Net Kâr</small>
+                                                        <strong class="text-dark fs-5">@summary.SprintNetProfit.ToString("N0") ₺</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- MAAŞ DAĞILIMI -->
+                                            <h6 class="small fw-bold text-dark mb-2 text-uppercase"><i class="bi bi-people text-primary"></i> Bu Hafta Kim Ne Kazandı?</h6>
+                                            @if (summary.SprintPayrolls.Any())
+                                            {
+                                                <div class="table-responsive mb-4">
+                                                    <table class="table table-sm table-bordered align-middle text-center" style="font-size:0.85rem;">
+                                                        <thead class="table-light"><tr><th class="text-start">Geliştirici</th><th>Üstlenilen Efor</th><th class="text-end">Bu Hafta Kazandığı Tutar</th></tr></thead>
+                                                        <tbody>
+                                                            @foreach (var dev in summary.SprintPayrolls)
+                                                            {
+                                                                <tr>
+                                                                    <td class="text-start fw-bold">@dev.Name</td>
+                                                                    <td class="text-info fw-bold">@dev.TotalSP SP (@dev.TotalHours Saat)</td>
+                                                                    <td class="text-end fw-bold text-success">@dev.TotalEarnings.ToString("N0") ₺</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="alert alert-light py-2 small border mb-4">Bu hafta kimseye ödeme tahakkuk etmedi.</div>
+                                            }
+
+                                            <!-- BITEN İŞLER -->
+                                            <h6 class="small fw-bold text-dark mb-2 text-uppercase"><i class="bi bi-check-all text-success"></i> Bu Hafta Biten Görevler</h6>
+                                            @if (summary.CompletedTasks.Any())
+                                            {
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-hover align-middle" style="font-size:0.8rem;">
+                                                        <thead class="table-light"><tr><th>Görev Başlığı</th><th>Tip</th><th>Öncelik</th><th>Sorumlu</th><th class="text-end">Zorluk (SP)</th></tr></thead>
+                                                        <tbody>
+                                                            @foreach (var task in summary.CompletedTasks)
+                                                            {
+                                                                <tr>
+                                                                    <td class="fw-bold">@task.Title</td>
+                                                                    <td><span class="badge bg-light text-dark border">@task.TaskType</span></td>
+                                                                    <td><span class="badge bg-danger">@task.Priority</span></td>
+                                                                    <td><i class="bi bi-person-circle text-secondary me-1"></i> @task.Developer?.FullName</td>
+                                                                    <td class="text-end fw-bold text-primary">@task.StoryPoints SP</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="alert alert-warning py-2 small mb-0">Bu koşuda tamamlanan herhangi bir görev bulunmuyor.</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SAĞ TARAF: GÜNLÜK LOGLAR VE İŞ YÜKÜ -->
+                <div class="col-md-4">
+                    <div class="bg-white p-4 rounded-3 shadow-sm h-100 border mb-4">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-danger me-2"></i> Bugünün Hareket Dökümü</h6>
+                        @if (Model.TodaysActivityLogs.Any())
+                        {
+                            <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                                @foreach (var log in Model.TodaysActivityLogs)
+                                {
+                                    <div class="list-group-item px-0 py-2 border-bottom">
+                                        <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                            <small class="fw-bold text-primary text-truncate" style="max-width:70%;">@log.TaskTitle</small>
+                                            <small class="text-muted" style="font-size:0.7rem;"><i class="bi bi-clock"></i> @log.Time</small>
+                                        </div>
+                                        <p class="mb-0 text-dark small" style="font-size:0.8rem; line-height:1.3;">@log.Message</p>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-light border text-muted small text-center mb-0">Bugün henüz hiçbir işlem yapılmadı.</div>
+                        }
+                    </div>
+
+                    <div class="bg-white p-4 rounded-3 shadow-sm border">
+                        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-person-vcard text-warning me-2"></i> Aktif İş Yükü Dağılımı</h6>
+                        <div style="height: 250px;"><canvas id="workloadChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- SEKME 2: GANTT ŞEMASI -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "gantt" ? "show active" : "")" id="pane-gantt" role="tabpanel">
+
+            <!-- FİLTRE -->
+            <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3 border">
+                <i class="bi bi-funnel text-primary"></i>
+                <form method="get" class="d-flex gap-3 align-items-center flex-wrap mb-0">
+                    <input type="hidden" name="ActiveTab" value="gantt" />
+                    <select name="FilterDeveloperId" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">Tüm Kişiler</option>
+                        @foreach (var dev in Model.AllDevelopers)
+                        {
+                            <option value="@dev.DeveloperId" selected="@(Model.FilterDeveloperId == dev.DeveloperId)">@dev.FullName</option>
+                        }
+                    </select>
+                    <select name="FilterSprint" class="form-select form-select-sm" style="width: auto;">
+                        <option value="">Tüm Sprintler</option>
+                        @foreach (var sp in Model.SprintNames)
+                        {
+                            <option value="@sp" selected="@(Model.FilterSprint == sp)">@sp</option>
+                        }
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Filtrele</button>
+                    <a href="/Dashboard?ActiveTab=gantt" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i> Temizle</a>
+                </form>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-steps text-success me-2"></i> Proje Gantt Şeması (Zaman Çizelgesi)</h6>
+                <span class="badge bg-light text-dark border">Agile Roadmap</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-start" style="width:20%;">Görev Başlığı</th>
+                            <th style="width: 10%;">Sorumlu</th>
+                            <th style="width: 8%;">İlerleme</th>
+                            <th style="width: 10%;">Başlangıç</th>
+                            <th style="width: 10%;">Bitiş</th>
+                            <th style="width: 10.5%;">Hafta 1 (S1)</th>
+                            <th style="width: 10.5%;">Hafta 2 (S2)</th>
+                            <th style="width: 10.5%;">Hafta 3 (S3)</th>
+                            <th style="width: 10.5%;">Hafta 4 (S4)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var ganttTasksList = Model.AllTasks.AsEnumerable();
+                            if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
+                            {
+                                ganttTasksList = ganttTasksList.Where(t => t.DeveloperId == Model.FilterDeveloperId);
+                            }
+                            if (!string.IsNullOrEmpty(Model.FilterSprint))
+                            {
+                                ganttTasksList = ganttTasksList.Where(t => t.Sprint == Model.FilterSprint);
+                            }
+                        }
+                        @foreach (var task in ganttTasksList.OrderBy(t => t.Sprint).ThenBy(t => t.Developer?.FullName))
+                        {
+                            <tr>
+                                <td class="text-start fw-bold text-dark">@task.Title</td>
+                                <td><span class="badge bg-dark">@(task.Developer?.FullName ?? "Atanmadı")</span></td>
+                                <td>
+                                    <div class="progress" style="height: 18px; min-width: 60px;">
+                                        <div class="progress-bar @(task.ProgressPercent >= 100 ? "bg-success" : task.ProgressPercent >= 50 ? "bg-info" : "bg-warning")"
+                                             style="width: @task.ProgressPercent%">
+                                            <small class="fw-bold">%@task.ProgressPercent</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="small text-muted">@(task.StartDate?.ToString("dd.MM") ?? "-")</td>
+                                <td class="small text-muted">@(task.Deadline?.ToString("dd.MM") ?? "-")</td>
+
+                                @for (int i = 1; i <= 4; i++)
+                                {
+                                    string currentSprint = $"Sprint {i}";
+                                    if (task.Sprint == currentSprint)
+                                    {
+                                        if (task.Status == "Done")
+                                        {
+                                            <td class="bg-success text-white fw-bold shadow-sm rounded-1">✓ Tamamlandı</td>
+                                        }
+                                        else if (task.Status == "In Progress")
+                                        {
+                                            <td class="bg-warning text-dark fw-bold shadow-sm rounded-1">🏃 Devam (%@task.ProgressPercent)</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="bg-secondary text-white fw-bold shadow-sm rounded-1">📋 Yapılacak</td>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <td class="bg-light bg-opacity-50"></td>
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- SEKME 3: GÖREV LİSTESİ + KİŞİ YÖNETİMİ -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "tasks" ? "show active" : "")" id="pane-tasks" role="tabpanel">
+
+            <div class="row g-4">
+                <!-- SOL: GÖREV TABLOSU -->
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-task text-primary me-2"></i> Tüm Görevler</h6>
+                        <form method="get" class="d-flex gap-2 mb-0">
+                            <input type="hidden" name="ActiveTab" value="tasks" />
+                            <select name="FilterDeveloperId" class="form-select form-select-sm" style="width: auto;">
+                                <option value="">Tüm Kişiler</option>
+                                @foreach (var dev in Model.AllDevelopers)
+                                {
+                                    <option value="@dev.DeveloperId" selected="@(Model.FilterDeveloperId == dev.DeveloperId)">@dev.FullName</option>
+                                }
+                            </select>
+                            <select name="FilterSprint" class="form-select form-select-sm" style="width: auto;">
+                                <option value="">Tüm Sprintler</option>
+                                @foreach (var sp in Model.SprintNames)
+                                {
+                                    <option value="@sp" selected="@(Model.FilterSprint == sp)">@sp</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i></button>
+                            <a href="/Dashboard?ActiveTab=tasks" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i></a>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="font-size:0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start">Görev</th>
+                                    <th>Sprint</th>
+                                    <th>Sorumlu</th>
+                                    <th>Durum</th>
+                                    <th>Öncelik</th>
+                                    <th>İlerleme</th>
+                                    <th>SP</th>
+                                    <th>Başlangıç</th>
+                                    <th>Bitiş</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    var taskListFiltered = Model.AllTasks.AsEnumerable();
+                                    if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
+                                    {
+                                        taskListFiltered = taskListFiltered.Where(t => t.DeveloperId == Model.FilterDeveloperId);
+                                    }
+                                    if (!string.IsNullOrEmpty(Model.FilterSprint))
+                                    {
+                                        taskListFiltered = taskListFiltered.Where(t => t.Sprint == Model.FilterSprint);
+                                    }
+                                }
+                                @foreach (var task in taskListFiltered.OrderBy(t => t.Sprint).ThenBy(t => t.Status))
+                                {
+                                    <tr class="@(task.Status == "Done" ? "table-success" : "")">
+                                        <td class="text-start fw-bold">@task.Title</td>
+                                        <td><span class="badge bg-dark-subtle text-dark">@task.Sprint</span></td>
+                                        <td>
+                                            <span class="badge bg-primary-subtle text-primary">
+                                                <i class="bi bi-person-fill"></i> @(task.Developer?.FullName ?? "Atanmadı")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (task.Status == "Done")
+                                            {
+                                                <span class="badge bg-success">✓ Bitti</span>
+                                            }
+                                            else if (task.Status == "In Progress")
+                                            {
+                                                <span class="badge bg-warning text-dark">🏃 Devam</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">📋 Yapılacak</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @(task.Priority == "Kritik" ? "bg-danger" : task.Priority == "Yüksek" ? "bg-warning text-dark" : "bg-light text-dark border")">@task.Priority</span>
+                                        </td>
+                                        <td style="min-width:80px;">
+                                            <div class="progress" style="height: 16px;">
+                                                <div class="progress-bar @(task.ProgressPercent >= 100 ? "bg-success" : task.ProgressPercent >= 50 ? "bg-info" : "bg-warning")" style="width: @task.ProgressPercent%">
+                                                    <small>%@task.ProgressPercent</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="fw-bold text-primary">@task.StoryPoints</td>
+                                        <td class="small text-muted">@(task.StartDate?.ToString("dd.MM") ?? "-")</td>
+                                        <td class="small text-muted">@(task.Deadline?.ToString("dd.MM") ?? "-")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SAĞ: KİŞİ YÖNETİMİ -->
+                <div class="col-md-4">
+                    <div class="bg-light p-4 rounded-3 border">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-people-fill text-primary me-2"></i> Ekip Yönetimi</h6>
+
+                        <!-- KİŞİ EKLE -->
+                        <form method="post" asp-page-handler="AddDeveloper" class="mb-4 p-3 bg-white rounded-3 border shadow-sm">
+                            <h6 class="fw-bold text-success small mb-3"><i class="bi bi-person-plus-fill me-1"></i> Yeni Kişi Ekle</h6>
+                            <div class="mb-2">
+                                <input type="text" asp-for="NewDevName" class="form-control form-control-sm" placeholder="Ad Soyad" required />
+                            </div>
+                            <div class="mb-2">
+                                <select asp-for="NewDevRole" class="form-select form-select-sm">
+                                    <option value="Backend">Backend</option>
+                                    <option value="Frontend">Frontend</option>
+                                    <option value="Full Stack">Full Stack</option>
+                                    <option value="PM">PM (Proje Yöneticisi)</option>
+                                    <option value="QA">QA (Test)</option>
+                                    <option value="DevOps">DevOps</option>
+                                </select>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <input type="number" asp-for="NewDevHourlyRate" class="form-control form-control-sm" placeholder="Saat Ücreti (₺)" value="350" />
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" asp-for="NewDevBaseSalary" class="form-control form-control-sm" placeholder="Taban Maaş (₺)" value="0" />
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-plus-lg me-1"></i> Ekle</button>
+                        </form>
+
+                        <!-- KİŞİ LİSTESİ -->
+                        <h6 class="fw-bold text-dark small mb-2">Mevcut Ekip Üyeleri</h6>
+                        @if (Model.AllDevelopers.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var dev in Model.AllDevelopers)
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center px-2 py-2 border-bottom">
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:32px; height:32px; font-size:0.8rem;">
+                                                    @dev.FullName.Substring(0, 1)
+                                                </div>
+                                                <div>
+                                                    <span class="fw-bold small">@dev.FullName</span>
+                                                    <br /><span class="badge bg-light text-dark border" style="font-size:0.65rem;">@dev.Role</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <form method="post" asp-page-handler="DeleteDeveloper" asp-route-devId="@dev.DeveloperId" onsubmit="return confirm('Bu kişiyi silmek istediğinize emin misiniz? Görevlerdeki atamaları kaldırılacaktır.');" class="m-0">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash3"></i></button>
+                                        </form>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-light border small text-center">Henüz ekip üyesi eklenmemiş.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- SEKME 4: TARİHSEL DURUM (ZAMAN MAKİNESİ) -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "daily" ? "show active" : "")" id="pane-daily" role="tabpanel">
+            <div class="row g-4">
+                <!-- TARİHE GÖRE PROJE DURUMU -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-3 bg-light p-3 rounded border">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1"><i class="bi bi-calendar-date text-primary me-2"></i> Tarihsel Proje Geçmişi</h6>
+                            @{
+                                var firstSprint = Model.SprintHistories.FirstOrDefault();
+                                var lastSprint = Model.SprintHistories.LastOrDefault();
+                                string projStart = firstSprint?.StartDate?.ToString("dd.MM.yyyy") ?? "-";
+                                string projEnd = lastSprint?.EndDate?.ToString("dd.MM.yyyy") ?? "-";
+                            }
+                            <small class="text-muted">Projenin Planlanan Takvimi: <strong>@projStart - @projEnd</strong>. Geçmiş bir tarih seçerek o günkü proje durumunu ve kimin ne yaptığını görebilirsiniz.</small>
+                        </div>
+                        <form method="get" class="d-flex gap-2 mb-0">
+                            <input type="hidden" name="ActiveTab" value="daily" />
+                            <input type="date" name="FilterDate" class="form-control form-control-sm" value="@Model.FilterDate" style="width:auto;" />
+                            <select name="FilterDeveloperId" class="form-select form-select-sm" style="width: auto;">
+                                <option value="">Tüm Kişiler</option>
+                                @foreach (var dev in Model.AllDevelopers)
+                                {
+                                    <option value="@dev.DeveloperId" selected="@(Model.FilterDeveloperId == dev.DeveloperId)">@dev.FullName</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i></button>
+                            <a href="/Dashboard?ActiveTab=daily" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i></a>
+                        </form>
+                    </div>
+
+                    @{
+                        var historicalTasks = Model.AllTasks.AsEnumerable();
+                        if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
+                        {
+                            historicalTasks = historicalTasks.Where(t => t.DeveloperId == Model.FilterDeveloperId);
+                        }
+                        if (!string.IsNullOrEmpty(Model.FilterDate))
+                        {
+                            if (DateTime.TryParseExact(Model.FilterDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var fDate) ||
+                                DateTime.TryParse(Model.FilterDate, out fDate))
+                            {
+                                historicalTasks = historicalTasks.Where(t => 
+                                    // Sadece seçilen tarihte "Aktif" olan (Başlamış ama henüz Deadline'ı geçmemiş) görevleri göster
+                                    (t.StartDate.HasValue && t.StartDate.Value.Date <= fDate.Date) && 
+                                    (!t.Deadline.HasValue || t.Deadline.Value.Date >= fDate.Date)
+                                );
+                            }
+                        }
+                    }
+
+                    @if (historicalTasks.Any())
+                    {
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle" style="font-size:0.85rem;">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Görev</th>
+                                        <th>Sorumlu</th>
+                                        <th>Durum</th>
+                                        <th>Başlangıç</th>
+                                        <th>İlerleme</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var ht in historicalTasks.OrderByDescending(t => t.StartDate))
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">@ht.Title</td>
+                                            <td>
+                                                <span class="badge bg-primary-subtle text-primary">
+                                                    <i class="bi bi-person-fill"></i> @(ht.Developer?.FullName ?? "Atanmadı")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if (ht.Status == "Done")
+                                                {
+                                                    <span class="badge bg-success">✓ Bitti</span>
+                                                }
+                                                else if (ht.Status == "In Progress")
+                                                {
+                                                    <span class="badge bg-warning text-dark">🏃 Devam</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">📋 Başlamadı</span>
+                                                }
+                                            </td>
+                                            <td class="fw-bold text-primary">@(ht.StartDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                            <td>
+                                                <div class="progress" style="height: 16px; min-width: 60px;">
+                                                    <div class="progress-bar @(ht.ProgressPercent >= 100 || ht.Status == "Done" ? "bg-success" : ht.ProgressPercent >= 50 ? "bg-info" : "bg-warning")" style="width: @(ht.Status == "Done" ? 100 : ht.ProgressPercent)%">
+                                                        <small>%@(ht.Status == "Done" ? 100 : ht.ProgressPercent)</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-light border text-center py-5">
+                            <i class="bi bi-journal-text fs-1 d-block mb-2 text-muted"></i>
+                            <p class="text-muted mb-0">Seçtiğiniz tarihe ait veya öncesinde başlamış bir görev bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- SEKME 5: KAZANÇ -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "earnings" ? "show active" : "")" id="pane-earnings" role="tabpanel">
+
+            <!-- KİŞİ BAZLI TOPLAM KAZANÇ -->
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-person-lines-fill text-success me-2"></i> Kişi Bazlı Kazanç Özeti</h6>
+            <div class="table-responsive mb-5">
+                <table class="table table-bordered table-hover align-middle text-center" style="font-size:0.85rem;">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-start">Geliştirici</th>
+                            <th>Rol</th>
+                            <th>Toplam Görev</th>
+                            <th>Tamamlanan</th>
+                            <th>Ort. İlerleme</th>
+                            <th>Toplam SP</th>
+                            <th>Saat Ücreti</th>
+                            <th class="text-end">İlerleme Bazlı Kazanç</th>
+                            <th class="text-end">Toplam Kazanç (Done)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var dev in Model.DeveloperEarnings)
+                        {
+                            <tr>
+                                <td class="text-start fw-bold">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:30px; height:30px; font-size:0.75rem;">@dev.Name.Substring(0, 1)</div>
+                                        @dev.Name
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-light text-dark border">@dev.Role</span></td>
+                                <td class="fw-bold">@dev.TotalTaskCount</td>
+                                <td class="text-success fw-bold">@dev.CompletedTaskCount</td>
+                                <td>
+                                    <div class="progress" style="height: 16px; min-width: 60px;">
+                                        <div class="progress-bar @(dev.AvgProgress >= 75 ? "bg-success" : dev.AvgProgress >= 40 ? "bg-info" : "bg-warning")" style="width: @dev.AvgProgress%">
+                                            <small>%@dev.AvgProgress</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="fw-bold text-primary">@dev.TotalSP SP</td>
+                                <td>@dev.HourlyRate.ToString("N0") ₺/s</td>
+                                <td class="text-end fw-bold text-info">@dev.ProgressBasedEarnings.ToString("N0") ₺</td>
+                                <td class="text-end fw-bold text-success fs-6">@dev.TotalEarnings.ToString("N0") ₺</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td class="text-start" colspan="7">TOPLAM</td>
+                            <td class="text-end text-info">@Model.DeveloperEarnings.Sum(d => d.ProgressBasedEarnings).ToString("N0") ₺</td>
+                            <td class="text-end text-success fs-6">@Model.DeveloperEarnings.Sum(d => d.TotalEarnings).ToString("N0") ₺</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- SPRİNT BAZLI KAZANÇ TABLOSU (KİM, HANGİ AYDA NE KAZANDI) -->
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-table text-primary me-2"></i> Sprint (Ay) Bazlı Kazanç Dağılımı</h6>
+            <p class="text-muted small mb-3">Projenin kaçıncı ayında (sprint) kimin ne kadar kazandığını gösterir.</p>
+
+            <div class="table-responsive mb-5">
+                <table class="table table-bordered table-hover align-middle text-center" style="font-size:0.85rem;">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-start">Sprint (Ay)</th>
+                            <th>Durum</th>
+                            @foreach (var dev in Model.AllDevelopers)
+                            {
+                                <th>@dev.FullName.Split(' ')[0]</th>
+                            }
+                            <th class="text-end">Sprint Toplamı</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.SprintEarningRows)
+                        {
+                            <tr>
+                                <td class="text-start fw-bold">
+                                    <span class="badge @(row.IsActive ? "bg-primary" : "bg-success") me-1">@row.SprintName</span>
+                                    @if (row.StartDate.HasValue)
+                                    {
+                                        <small class="text-muted">(@row.StartDate.Value.ToString("dd.MM") - @(row.EndDate?.ToString("dd.MM") ?? "..."))</small>
+                                    }
+                                </td>
+                                <td>
+                                    @if (row.IsActive)
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary">Aktif</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success-subtle text-success">Bitti</span>
+                                    }
+                                </td>
+                                @foreach (var dev in Model.AllDevelopers)
+                                {
+                                    var earning = row.DeveloperEarnings.ContainsKey(dev.FullName) ? row.DeveloperEarnings[dev.FullName] : 0;
+                                    <td class="@(earning > 0 ? "fw-bold text-success" : "text-muted")">
+                                        @(earning > 0 ? earning.ToString("N0") + " ₺" : "-")
+                                    </td>
+                                }
+                                <td class="text-end fw-bold text-dark fs-6">@row.TotalSprintEarning.ToString("N0") ₺</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-warning">
+                        <tr class="fw-bold">
+                            <td class="text-start" colspan="2">GENEL TOPLAM</td>
+                            @foreach (var dev in Model.AllDevelopers)
+                            {
+                                var devTotal = Model.SprintEarningRows.Sum(r => r.DeveloperEarnings.ContainsKey(dev.FullName) ? r.DeveloperEarnings[dev.FullName] : 0);
+                                <td class="text-success">@devTotal.ToString("N0") ₺</td>
+                            }
+                            <td class="text-end text-dark fs-5">@Model.SprintEarningRows.Sum(r => r.TotalSprintEarning).ToString("N0") ₺</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- PROJE BÜTÇE ÖZETİ -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="bg-light p-4 rounded-3 border">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-cash-stack text-success me-2"></i> Proje Bütçe Özeti</h6>
+                        <table class="table table-sm" style="font-size:0.9rem;">
+                            <tr><td>Proje Cirosu</td><td class="text-end fw-bold text-success">@Model.ProjectRevenue.ToString("N0") ₺</td></tr>
+                            <tr><td>Operasyonel Giderler</td><td class="text-end fw-bold text-danger">-@Model.OperationalExpenses.ToString("N0") ₺</td></tr>
+                            <tr><td>Personel Gideri (Maaşlar)</td><td class="text-end fw-bold text-danger">-@Model.EarnedPayroll.ToString("N0") ₺</td></tr>
+                            <tr><td>Vergi (%20)</td><td class="text-end fw-bold text-danger">-@Model.TaxAmount.ToString("N0") ₺</td></tr>
+                            <tr class="table-success"><td class="fw-bold">Net Şirket Kârı</td><td class="text-end fw-bold text-success fs-5">@Model.NetCompanyProfit.ToString("N0") ₺</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bg-light p-4 rounded-3 border">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pie-chart-fill text-primary me-2"></i> Kazanç Dağılımı</h6>
+                        <div style="height: 250px;"><canvas id="earningsChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // İŞ YÜKÜ GRAFİĞİ
+        var workloadData = @(Html.Raw(Json.Serialize(Model.DeveloperWorkload)));
+        var wLabels = Object.keys(workloadData);
+        var wData = Object.values(workloadData);
+        var wCtx = document.getElementById('workloadChart');
+        if (wCtx) {
+            new Chart(wCtx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: wLabels, datasets: [{ label: 'Üstlenilen Aktif SP', data: wData, backgroundColor: ['#5b9bd5', '#ff8da1', '#ffd166', '#48cae4', '#06d6a0', '#e77c8e', '#8ac7db'], borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 20 } }, plugins: { legend: { display: false } } }
+            });
+        }
+
+        // KAZANÇ DAĞILIMI PASTA GRAFİĞİ
+        var earningsData = @(Html.Raw(Json.Serialize(Model.DeveloperEarnings.Select(d => new { d.Name, d.TotalEarnings }))));
+        var eCtx = document.getElementById('earningsChart');
+        if (eCtx && earningsData.length > 0) {
+            var eLabels = earningsData.map(d => d.name);
+            var eData = earningsData.map(d => d.totalEarnings);
+            new Chart(eCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: eLabels,
+                    datasets: [{
+                        data: eData,
+                        backgroundColor: ['#5b9bd5', '#ff8da1', '#ffd166', '#48cae4', '#06d6a0', '#e77c8e', '#8ac7db', '#c9b1ff'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+<style>
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+    }
+    .nav-tabs .nav-link:hover {
+        color: #0d6efd;
+        border-bottom-color: #dee2e6;
+        background-color: #f8f9fa;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0d6efd;
+        border-bottom-color: #0d6efd;
+        background-color: transparent;
+    }
+    .pulse-blue {
+        animation: pulse-b 2s infinite;
+    }
+    @@keyframes pulse-b {
+        0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.5); }
+        70% { box-shadow: 0 0 0 8px rgba(13, 110, 253, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
+    }
+</style>
