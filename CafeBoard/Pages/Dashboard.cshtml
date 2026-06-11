@@ -78,6 +78,16 @@
                 <i class="bi bi-currency-exchange me-1"></i> Kazanç
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "report" ? "active" : "")" id="tab-report" data-bs-toggle="tab" data-bs-target="#pane-report" type="button" role="tab">
+                <i class="bi bi-file-earmark-bar-graph-fill me-1"></i> Sprint Günlük Raporu
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold @(activeTab == "general" ? "active" : "")" id="tab-general" data-bs-toggle="tab" data-bs-target="#pane-general" type="button" role="tab">
+                <i class="bi bi-file-earmark-check-fill me-1"></i> Genel Proje Raporu
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content bg-white rounded-bottom-3 shadow-sm border border-top-0 p-4">
@@ -252,7 +262,47 @@
 
                 <!-- SAĞ TARAF: GÜNLÜK LOGLAR VE İŞ YÜKÜ -->
                 <div class="col-md-4">
-                    <div class="bg-white p-4 rounded-3 shadow-sm h-100 border mb-4">
+                    <!-- BU HAFTA BİTİRENLER CARD -->
+                    <div class="bg-white p-4 rounded-3 shadow-sm border mb-4">
+                        <h6 class="fw-bold text-dark mb-1"><i class="bi bi-trophy-fill text-warning me-2"></i> Bu Hafta Bitirenler (Tebrikler!)</h6>
+                        <p class="text-muted small mb-3">Aktif Sprint içerisinde görevlerini başarıyla tamamlayan geliştiricilerimiz:</p>
+                        @if (Model.CompletedThisWeek.Any())
+                        {
+                            <div class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
+                                @foreach (var item in Model.CompletedThisWeek.GroupBy(c => c.DeveloperName))
+                                {
+                                    <div class="list-group-item px-0 py-2 border-bottom">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                                    @item.Key.Substring(0, 1)
+                                                </div>
+                                                <div>
+                                                    <span class="fw-bold text-dark small">@item.Key</span>
+                                                    <span class="badge bg-success-subtle text-success border border-success rounded-pill ms-2" style="font-size:0.65rem;">@item.First().Role</span>
+                                                </div>
+                                            </div>
+                                            <span class="badge bg-primary rounded-pill small">@item.Count() İş Bitti</span>
+                                        </div>
+                                        <div class="mt-2 ps-4">
+                                            @foreach (var task in item)
+                                            {
+                                                <div class="small text-muted mb-1" style="font-size: 0.75rem;">
+                                                    <i class="bi bi-check-circle-fill text-success me-1"></i> @task.TaskTitle <span class="badge bg-light text-primary border rounded-pill">@task.StoryPoints SP</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-light border text-muted small text-center mb-0">Aktif sprintte henüz tamamlanan görev bulunmuyor.</div>
+                        }
+                    </div>
+
+                    <div class="bg-white p-4 rounded-3 shadow-sm border mb-4">
                         <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-danger me-2"></i> Bugünün Hareket Dökümü</h6>
                         @if (Model.TodaysActivityLogs.Any())
                         {
@@ -288,106 +338,246 @@
         <!-- ================================================================ -->
         <div class="tab-pane fade @(activeTab == "gantt" ? "show active" : "")" id="pane-gantt" role="tabpanel">
 
-            <!-- FİLTRE -->
-            <div class="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3 border">
-                <i class="bi bi-funnel text-primary"></i>
-                <form method="get" class="d-flex gap-3 align-items-center flex-wrap mb-0">
-                    <input type="hidden" name="ActiveTab" value="gantt" />
-                    <select name="FilterDeveloperId" class="form-select form-select-sm" style="width: auto;">
-                        <option value="">Tüm Kişiler</option>
-                        @foreach (var dev in Model.AllDevelopers)
-                        {
-                            <option value="@dev.DeveloperId" selected="@(Model.FilterDeveloperId == dev.DeveloperId)">@dev.FullName</option>
-                        }
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h4 class="fw-bold text-dark mb-0">Gantt Şeması</h4>
+                <div class="d-flex align-items-center gap-2">
+                    <select id="ganttViewSelector" onchange="toggleGanttView(this.value)" class="form-select gantt-view-select shadow-sm" style="width: auto;">
+                        <option value="byDev">Kişilere Göre</option>
+                        <option value="byTask">Görevlere Göre</option>
                     </select>
-                    <select name="FilterSprint" class="form-select form-select-sm" style="width: auto;">
-                        <option value="">Tüm Sprintler</option>
-                        @foreach (var sp in Model.SprintNames)
-                        {
-                            <option value="@sp" selected="@(Model.FilterSprint == sp)">@sp</option>
-                        }
-                    </select>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Filtrele</button>
-                    <a href="/Dashboard?ActiveTab=gantt" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i> Temizle</a>
-                </form>
+                    <form id="ganttFilterForm" method="get" class="d-flex align-items-center gap-2 mb-0">
+                        <input type="hidden" name="ActiveTab" value="gantt" />
+                        <select name="FilterDeveloperId" onchange="this.form.submit()" class="form-select gantt-filter-select shadow-sm" style="width: auto;">
+                            <option value="">Tüm Kişiler</option>
+                            @foreach (var dev in Model.AllDevelopers)
+                            {
+                                <option value="@dev.DeveloperId" selected="@(Model.FilterDeveloperId == dev.DeveloperId)">@dev.FullName</option>
+                            }
+                        </select>
+                    </form>
+                </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-bar-chart-steps text-success me-2"></i> Proje Gantt Şeması (Zaman Çizelgesi)</h6>
-                <span class="badge bg-light text-dark border">Agile Roadmap</span>
-            </div>
+            @{
+                var projStart = new DateTime(2026, 4, 10);
+                var projEnd = new DateTime(2026, 5, 7);
+                double totalProjDays = (projEnd.Date - projStart.Date).TotalDays + 1; // 28 days
 
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle text-center mb-0" style="font-size: 0.85rem;">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="text-start" style="width:20%;">Görev Başlığı</th>
-                            <th style="width: 10%;">Sorumlu</th>
-                            <th style="width: 8%;">İlerleme</th>
-                            <th style="width: 10%;">Başlangıç</th>
-                            <th style="width: 10%;">Bitiş</th>
-                            <th style="width: 10.5%;">Hafta 1 (S1)</th>
-                            <th style="width: 10.5%;">Hafta 2 (S2)</th>
-                            <th style="width: 10.5%;">Hafta 3 (S3)</th>
-                            <th style="width: 10.5%;">Hafta 4 (S4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @{
-                            var ganttTasksList = Model.AllTasks.AsEnumerable();
-                            if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
-                            {
-                                ganttTasksList = ganttTasksList.Where(t => t.DeveloperId == Model.FilterDeveloperId);
-                            }
-                            if (!string.IsNullOrEmpty(Model.FilterSprint))
-                            {
-                                ganttTasksList = ganttTasksList.Where(t => t.Sprint == Model.FilterSprint);
-                            }
-                        }
-                        @foreach (var task in ganttTasksList.OrderBy(t => t.Sprint).ThenBy(t => t.Developer?.FullName))
+                var simToday = new DateTime(2026, 5, 3);
+                double todayOffset = (simToday.Date - projStart.Date).TotalDays;
+                double todayPercent = (todayOffset / totalProjDays) * 100;
+
+                Func<int?, string> getDevColor = (id) => {
+                    int val = id ?? 0;
+                    string[] colors = { "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#14b8a6", "#6366f1", "#06b6d4", "#ef4444" };
+                    return colors[val % colors.Length];
+                };
+                Func<int?, string> getDevColorLight = (id) => {
+                    int val = id ?? 0;
+                    string[] colors = {
+                        "rgba(59, 130, 246, 0.08)",
+                        "rgba(139, 92, 246, 0.08)",
+                        "rgba(236, 72, 153, 0.08)",
+                        "rgba(245, 158, 11, 0.08)",
+                        "rgba(20, 184, 166, 0.08)",
+                        "rgba(99, 102, 241, 0.08)",
+                        "rgba(6, 182, 212, 0.08)",
+                        "rgba(239, 68, 68, 0.08)"
+                    };
+                    return colors[val % colors.Length];
+                };
+
+                var ganttTasksList = Model.AllTasks.AsEnumerable();
+                if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
+                {
+                    ganttTasksList = ganttTasksList.Where(t => t.DeveloperId == Model.FilterDeveloperId);
+                }
+
+                // Grouped tasks (Kişilere Göre)
+                var groupedGanttTasks = ganttTasksList
+                    .GroupBy(t => t.Developer)
+                    .OrderBy(g => g.Key != null ? g.Key.FullName : "Z_Atanmamis");
+
+                // Chronological tasks (Görevlere Göre)
+                var chronologicalTasks = ganttTasksList.OrderBy(t => t.StartDate).ToList();
+            }
+
+            <div class="border rounded-3 shadow-sm bg-white overflow-hidden" id="ganttChartWrapper">
+                <!-- Timeline Header -->
+                <div class="row g-0 bg-light border-bottom text-center align-items-center py-2 fw-bold text-dark border-top" style="font-size: 0.8rem;">
+                    <div class="col-3 text-start ps-3 text-muted">Görev / Kişi</div>
+                    <div class="col-9">
+                        <div class="row g-0">
+                            <div class="col border-start text-muted py-2">Nis 2026</div>
+                            <div class="col border-start text-muted py-2">Nis 2026</div>
+                            <div class="col border-start text-muted py-2">Nis 2026</div>
+                            <div class="col border-start text-muted py-2">Nis 2026</div>
+                            <div class="col border-start text-muted py-2">May 2026</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="position-relative" style="min-height: 400px;">
+                    <!-- Vertical grid lines container -->
+                    <div class="position-absolute top-0 bottom-0 start-0 end-0 d-flex pointer-events-none" style="z-index: 1;">
+                        <div class="w-100 row g-0 h-100">
+                            <div class="col-3 h-100"></div>
+                            <div class="col-9 h-100 d-flex">
+                                <div class="flex-grow-1 h-100 border-start border-light-subtle" style="border-left: 1px solid rgba(0, 0, 0, 0.05) !important;"></div>
+                                <div class="flex-grow-1 h-100 border-start border-light-subtle" style="border-left: 1px solid rgba(0, 0, 0, 0.05) !important;"></div>
+                                <div class="flex-grow-1 h-100 border-start border-light-subtle" style="border-left: 1px solid rgba(0, 0, 0, 0.05) !important;"></div>
+                                <div class="flex-grow-1 h-100 border-start border-light-subtle" style="border-left: 1px solid rgba(0, 0, 0, 0.05) !important;"></div>
+                                <div class="flex-grow-1 h-100 border-start border-light-subtle border-end" style="border-left: 1px solid rgba(0, 0, 0, 0.05) !important; border-right: 1px solid rgba(0, 0, 0, 0.05) !important;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vertical Today Line (Simulated for 03.05.2026) -->
+                    <div class="position-absolute top-0 bottom-0 pointer-events-none d-flex flex-column align-items-center" 
+                         style="left: calc(25% + @(todayPercent * 0.75)% - 1px); z-index: 10;">
+                        <span class="badge bg-danger text-white px-2 py-0.5 rounded-pill mb-1 shadow-sm" style="font-size:0.6rem; transform: translateY(-5px);">Bugün</span>
+                        <div class="h-100 border-start border-danger border-2 border-dashed"></div>
+                    </div>
+
+                    <!-- VIEW 1: Kişilere Göre -->
+                    <div id="ganttByDevView">
+                        @foreach (var group in groupedGanttTasks)
                         {
-                            <tr>
-                                <td class="text-start fw-bold text-dark">@task.Title</td>
-                                <td><span class="badge bg-dark">@(task.Developer?.FullName ?? "Atanmadı")</span></td>
-                                <td>
-                                    <div class="progress" style="height: 18px; min-width: 60px;">
-                                        <div class="progress-bar @(task.ProgressPercent >= 100 ? "bg-success" : task.ProgressPercent >= 50 ? "bg-info" : "bg-warning")"
-                                             style="width: @task.ProgressPercent%">
-                                            <small class="fw-bold">%@task.ProgressPercent</small>
+                            var dev = group.Key;
+                            var devName = dev?.FullName ?? "Atanmamış Görevler";
+                            var devRole = dev?.Role ?? "Efor Listesi";
+                            var devColor = getDevColor(dev?.DeveloperId);
+                            var devColorLight = getDevColorLight(dev?.DeveloperId);
+
+                            var devTasks = group.ToList();
+                            if (!devTasks.Any()) continue;
+                            
+                            var devMinStart = devTasks.Where(t => t.StartDate.HasValue).Min(t => t.StartDate) ?? projStart;
+                            var devMaxEnd = devTasks.Where(t => t.Deadline.HasValue).Max(t => t.Deadline) ?? projEnd;
+                            
+                            double devStartOffset = (devMinStart.Date - projStart.Date).TotalDays;
+                            double devDuration = (devMaxEnd.Date - devMinStart.Date).TotalDays + 1;
+                            double devLeft = (devStartOffset / totalProjDays) * 100;
+                            double devWidth = (devDuration / totalProjDays) * 100;
+
+                            double devProgress = group.Any() 
+                                ? Math.Round(group.Average(t => t.Status == "Done" ? 100.0 : (double)t.ProgressPercent), 0) 
+                                : 0;
+
+                            <!-- Developer Summary Row -->
+                            <div class="row g-0 border-bottom align-items-center py-3 bg-light bg-opacity-25" style="z-index: 5; position: relative;">
+                                <div class="col-3 border-end pe-3 text-truncate">
+                                    <div class="d-flex align-items-center gap-2 ps-2">
+                                        <span class="rounded-circle" style="width: 10px; height: 10px; background-color: @devColor; display: inline-block;"></span>
+                                        <strong class="text-dark" style="font-size: 0.95rem;">@devName</strong>
+                                    </div>
+                                    <div class="ps-4 text-muted small" style="font-size: 0.75rem; line-height: 1.4;">
+                                        @devRole • @devTasks.Count görev • %@devProgress
+                                        <br/>
+                                        <i class="bi bi-calendar3 me-1"></i>@devMinStart.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR")) - @devMaxEnd.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR"))
+                                    </div>
+                                </div>
+                                <div class="col-9 position-relative" style="height: 40px;">
+                                    <div class="position-absolute gantt-summary-bar border-dashed shadow-sm"
+                                         style="left: @(devLeft)%; width: @(devWidth)%; top: 8px; bottom: 8px; background-color: @devColorLight; border: 2px dashed @devColor; min-width: 25px; color: @devColor;"
+                                         title="Kişisel Genel İlerleme: %@devProgress">
+                                        %@devProgress
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Task Rows for this developer -->
+                            @foreach (var task in group.OrderBy(t => t.StartDate))
+                            {
+                                var tStart = task.StartDate ?? projStart;
+                                var tEnd = task.Deadline ?? projEnd;
+                                
+                                double tStartOffset = (tStart.Date - projStart.Date).TotalDays;
+                                double tDuration = (tEnd.Date - tStart.Date).TotalDays + 1;
+                                double tLeft = (tStartOffset / totalProjDays) * 100;
+                                double tWidth = (tDuration / totalProjDays) * 100;
+                                int tProgress = task.Status == "Done" ? 100 : task.ProgressPercent;
+
+                                <div class="row g-0 border-bottom align-items-center py-2 gantt-row" style="z-index: 2; position: relative;">
+                                    <div class="col-3 border-end pe-3 text-truncate">
+                                        <div class="d-flex align-items-center gap-1 ps-4">
+                                            <span class="fw-bold me-2" style="color: @devColor; font-size: 1.2rem; line-height: 1;">•</span>
+                                            <span class="text-dark small">@task.Title</span>
+                                        </div>
+                                        <div class="ps-5 text-muted small" style="font-size: 0.72rem;">
+                                            <i class="bi bi-calendar3 me-1"></i>@tStart.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR")) - @tEnd.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR"))
                                         </div>
                                     </div>
-                                </td>
-                                <td class="small text-muted">@(task.StartDate?.ToString("dd.MM") ?? "-")</td>
-                                <td class="small text-muted">@(task.Deadline?.ToString("dd.MM") ?? "-")</td>
-
-                                @for (int i = 1; i <= 4; i++)
-                                {
-                                    string currentSprint = $"Sprint {i}";
-                                    if (task.Sprint == currentSprint)
-                                    {
-                                        if (task.Status == "Done")
-                                        {
-                                            <td class="bg-success text-white fw-bold shadow-sm rounded-1">✓ Tamamlandı</td>
-                                        }
-                                        else if (task.Status == "In Progress")
-                                        {
-                                            <td class="bg-warning text-dark fw-bold shadow-sm rounded-1">🏃 Devam (%@task.ProgressPercent)</td>
-                                        }
-                                        else
-                                        {
-                                            <td class="bg-secondary text-white fw-bold shadow-sm rounded-1">📋 Yapılacak</td>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <td class="bg-light bg-opacity-50"></td>
-                                    }
-                                }
-                            </tr>
+                                    <div class="col-9 position-relative" style="height: 40px;">
+                                        <div class="position-absolute gantt-progress-bar shadow-sm"
+                                             style="left: @(tLeft)%; width: @(tWidth)%; top: 8px; bottom: 8px; background-color: @devColor; min-width: 20px;"
+                                             title="%@tProgress İlerleme">
+                                            %@tProgress
+                                        </div>
+                                    </div>
+                                </div>
+                            }
                         }
-                    </tbody>
-                </table>
+                    </div>
+
+                    <!-- VIEW 2: Görevlere Göre -->
+                    <div id="ganttByTaskView" class="d-none">
+                        @foreach (var task in chronologicalTasks)
+                        {
+                            var tStart = task.StartDate ?? projStart;
+                            var tEnd = task.Deadline ?? projEnd;
+                            
+                            double tStartOffset = (tStart.Date - projStart.Date).TotalDays;
+                            double tDuration = (tEnd.Date - tStart.Date).TotalDays + 1;
+                            double tLeft = (tStartOffset / totalProjDays) * 100;
+                            double tWidth = (tDuration / totalProjDays) * 100;
+                            int tProgress = task.Status == "Done" ? 100 : task.ProgressPercent;
+                            
+                            string barColor = tProgress >= 100 ? "#10b981" : "#3b82f6";
+
+                            <div class="row g-0 border-bottom align-items-center py-2 gantt-row" style="z-index: 2; position: relative;">
+                                <div class="col-3 border-end pe-3 text-truncate">
+                                    <div class="ps-3">
+                                        <strong class="text-dark small">@task.Title</strong>
+                                        <div class="text-muted small" style="font-size: 0.75rem; margin-top: 2px;">
+                                            @(task.Developer?.FullName ?? "Atanmadı") • <i class="bi bi-calendar3 me-1"></i>@tStart.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR")) - @tEnd.ToString("d MMM", new System.Globalization.CultureInfo("tr-TR"))
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-9 position-relative" style="height: 40px;">
+                                    <div class="position-absolute gantt-progress-bar shadow-sm"
+                                         style="left: @(tLeft)%; width: @(tWidth)%; top: 8px; bottom: 8px; background-color: @barColor; min-width: 20px;"
+                                         title="%@tProgress İlerleme">
+                                        %@tProgress
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
             </div>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    var savedView = localStorage.getItem('ganttView') || 'byDev';
+                    var selector = document.getElementById('ganttViewSelector');
+                    if (selector) {
+                        selector.value = savedView;
+                    }
+                    toggleGanttView(savedView);
+                });
+
+                function toggleGanttView(view) {
+                    if (view === 'byDev') {
+                        document.getElementById('ganttByDevView').classList.remove('d-none');
+                        document.getElementById('ganttByTaskView').classList.add('d-none');
+                    } else if (view === 'byTask') {
+                        document.getElementById('ganttByDevView').classList.add('d-none');
+                        document.getElementById('ganttByTaskView').classList.remove('d-none');
+                    }
+                    localStorage.setItem('ganttView', view);
+                }
+            </script>
         </div>
 
         <!-- ================================================================ -->
@@ -475,11 +665,13 @@
                                         <td>
                                             <span class="badge @(task.Priority == "Kritik" ? "bg-danger" : task.Priority == "Yüksek" ? "bg-warning text-dark" : "bg-light text-dark border")">@task.Priority</span>
                                         </td>
-                                        <td style="min-width:80px;">
-                                            <div class="progress" style="height: 16px;">
-                                                <div class="progress-bar @(task.ProgressPercent >= 100 ? "bg-success" : task.ProgressPercent >= 50 ? "bg-info" : "bg-warning")" style="width: @task.ProgressPercent%">
-                                                    <small>%@task.ProgressPercent</small>
+                                        <td style="min-width:95px;">
+                                            <div class="d-flex align-items-center gap-2 justify-content-center">
+                                                <div class="progress flex-grow-1" style="height: 16px;">
+                                                    <div class="progress-bar @((task.Status == "Done" ? 100 : task.ProgressPercent) >= 100 ? "bg-success" : (task.Status == "Done" ? 100 : task.ProgressPercent) >= 50 ? "bg-info" : "bg-warning")" style="width: @(task.Status == "Done" ? 100 : task.ProgressPercent)%">
+                                                    </div>
                                                 </div>
+                                                <small class="fw-bold text-dark" style="font-size: 0.75rem;">%@(task.Status == "Done" ? 100 : task.ProgressPercent)</small>
                                             </div>
                                         </td>
                                         <td class="fw-bold text-primary">@task.StoryPoints</td>
@@ -572,10 +764,10 @@
                             @{
                                 var firstSprint = Model.SprintHistories.FirstOrDefault();
                                 var lastSprint = Model.SprintHistories.LastOrDefault();
-                                string projStart = firstSprint?.StartDate?.ToString("dd.MM.yyyy") ?? "-";
-                                string projEnd = lastSprint?.EndDate?.ToString("dd.MM.yyyy") ?? "-";
+                                string sprintProjStart = firstSprint?.StartDate?.ToString("dd.MM.yyyy") ?? "-";
+                                string sprintProjEnd = lastSprint?.EndDate?.ToString("dd.MM.yyyy") ?? "-";
                             }
-                            <small class="text-muted">Projenin Planlanan Takvimi: <strong>@projStart - @projEnd</strong>. Geçmiş bir tarih seçerek o günkü proje durumunu ve kimin ne yaptığını görebilirsiniz.</small>
+                            <small class="text-muted">Projenin Planlanan Takvimi: <strong>@sprintProjStart - @sprintProjEnd</strong>. Geçmiş bir tarih seçerek o günkü proje durumunu ve kimin ne yaptığını görebilirsiniz.</small>
                         </div>
                         <form method="get" class="d-flex gap-2 mb-0">
                             <input type="hidden" name="ActiveTab" value="daily" />
@@ -593,23 +785,59 @@
                     </div>
 
                     @{
+                        DateTime? queryDate = null;
+                        if (!string.IsNullOrEmpty(Model.FilterDate))
+                        {
+                            queryDate = CafeBoard.Pages.DashboardModel.ParseDate(Model.FilterDate);
+                        }
+
                         var historicalTasks = Model.AllTasks.AsEnumerable();
                         if (Model.FilterDeveloperId.HasValue && Model.FilterDeveloperId > 0)
                         {
                             historicalTasks = historicalTasks.Where(t => t.DeveloperId == Model.FilterDeveloperId);
                         }
-                        if (!string.IsNullOrEmpty(Model.FilterDate))
+                        
+                        if (queryDate.HasValue)
                         {
-                            if (DateTime.TryParseExact(Model.FilterDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var fDate) ||
-                                DateTime.TryParse(Model.FilterDate, out fDate))
-                            {
-                                historicalTasks = historicalTasks.Where(t => 
-                                    // Sadece seçilen tarihte "Aktif" olan (Başlamış ama henüz Deadline'ı geçmemiş) görevleri göster
-                                    (t.StartDate.HasValue && t.StartDate.Value.Date <= fDate.Date) && 
-                                    (!t.Deadline.HasValue || t.Deadline.Value.Date >= fDate.Date)
-                                );
-                            }
+                            // Sadece seçilen tarihte günlük ilerleme kaydı olan görevleri göster
+                            historicalTasks = historicalTasks.Where(t => 
+                                Model.DailyProgressList.Any(dp => dp.TaskId == t.TaskId)
+                            );
                         }
+                    }
+
+                    @if (queryDate.HasValue)
+                    {
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <div class="p-3 bg-primary text-white rounded-3 shadow-sm text-center h-100">
+                                    <small class="text-uppercase fw-bold text-white-50 d-block mb-1" style="font-size:0.7rem;">O Günlük İlerleme</small>
+                                    <h3 class="fw-bold mb-1">%@Model.SelectedDateProgress.ToString("N1")</h3>
+                                    <span class="small" style="font-size: 0.75rem;">@Model.SelectedDateStatusDescription</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-success text-white rounded-3 shadow-sm text-center h-100">
+                                    <small class="text-uppercase fw-bold text-white-50 d-block mb-1" style="font-size:0.7rem;">O Güne Kadar Gelir (Ciro)</small>
+                                    <h3 class="fw-bold mb-1">@Model.SelectedDateRevenue.ToString("N0") ₺</h3>
+                                    <span class="small" style="font-size: 0.75rem;">Toplam ciro üzerinden oranlama</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-warning text-dark rounded-3 shadow-sm text-center h-100">
+                                    <small class="text-uppercase fw-bold text-dark-50 d-block mb-1" style="font-size:0.7rem;">O Güne Kadar Dağıtılan Maaş</small>
+                                    <h3 class="fw-bold mb-1">@Model.SelectedDateSalary.ToString("N0") ₺</h3>
+                                    <span class="small" style="font-size: 0.75rem;">Kümülatif geliştirici efor maliyeti</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="p-3 bg-light text-dark rounded-3 shadow-sm border border-success text-center h-100 d-flex flex-column justify-content-center">
+                                    <small class="text-uppercase fw-bold text-muted d-block mb-1" style="font-size:0.7rem;">Proje Sonu Nihai Kârı</small>
+                                    <h3 class="fw-bold mb-1 text-success">@Model.NetCompanyProfit.ToString("N0") ₺</h3>
+                                    <span class="small text-muted" style="font-size: 0.75rem;">Proje sonu net şirket kârı</span>
+                                </div>
+                            </div>
+                        </div>
                     }
 
                     @if (historicalTasks.Any())
@@ -628,6 +856,19 @@
                                 <tbody>
                                     @foreach (var ht in historicalTasks.OrderByDescending(t => t.StartDate))
                                     {
+                                        var histStatus = ht.Status;
+                                        var histProgress = ht.Status == "Done" ? 100 : ht.ProgressPercent;
+                                        
+                                        if (queryDate.HasValue)
+                                        {
+                                            var dayProg = Model.DailyProgressList.FirstOrDefault(dp => dp.TaskId == ht.TaskId);
+                                            if (dayProg != null)
+                                            {
+                                                histProgress = dayProg.ProgressPercent;
+                                                histStatus = histProgress >= 100 ? "Done" : histProgress > 0 ? "In Progress" : "To-Do";
+                                            }
+                                        }
+
                                         <tr>
                                             <td class="fw-bold">@ht.Title</td>
                                             <td>
@@ -636,11 +877,11 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                @if (ht.Status == "Done")
+                                                @if (histStatus == "Done")
                                                 {
                                                     <span class="badge bg-success">✓ Bitti</span>
                                                 }
-                                                else if (ht.Status == "In Progress")
+                                                else if (histStatus == "In Progress")
                                                 {
                                                     <span class="badge bg-warning text-dark">🏃 Devam</span>
                                                 }
@@ -650,11 +891,13 @@
                                                 }
                                             </td>
                                             <td class="fw-bold text-primary">@(ht.StartDate?.ToString("dd.MM.yyyy") ?? "-")</td>
-                                            <td>
-                                                <div class="progress" style="height: 16px; min-width: 60px;">
-                                                    <div class="progress-bar @(ht.ProgressPercent >= 100 || ht.Status == "Done" ? "bg-success" : ht.ProgressPercent >= 50 ? "bg-info" : "bg-warning")" style="width: @(ht.Status == "Done" ? 100 : ht.ProgressPercent)%">
-                                                        <small>%@(ht.Status == "Done" ? 100 : ht.ProgressPercent)</small>
+                                            <td style="min-width:95px;">
+                                                <div class="d-flex align-items-center gap-2 justify-content-center">
+                                                    <div class="progress flex-grow-1" style="height: 16px;">
+                                                        <div class="progress-bar @(histProgress >= 100 ? "bg-success" : histProgress >= 50 ? "bg-info" : "bg-warning")" style="width: @histProgress%">
+                                                        </div>
                                                     </div>
+                                                    <small class="fw-bold text-dark" style="font-size: 0.75rem;">%@histProgress</small>
                                                 </div>
                                             </td>
                                         </tr>
@@ -668,6 +911,60 @@
                         <div class="alert alert-light border text-center py-5">
                             <i class="bi bi-journal-text fs-1 d-block mb-2 text-muted"></i>
                             <p class="text-muted mb-0">Seçtiğiniz tarihe ait veya öncesinde başlamış bir görev bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- HİSTORY PROGRESS ENTRIES -->
+                <div class="col-12 mt-4">
+                    <h6 class="fw-bold text-dark mb-3">
+                        <i class="bi bi-clock-history text-success me-2"></i> 
+                        Seçilen Tarihteki Çalışma Günlüğü (@(queryDate.HasValue ? queryDate.Value.ToString("dd.MM.yyyy") : "Son Kayıtlar"))
+                    </h6>
+                    
+                    @if (Model.DailyProgressList.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var dp in Model.DailyProgressList)
+                            {
+                                <div class="list-group-item list-group-item-action border shadow-sm rounded-3 mb-3 p-3 bg-white border-start border-success border-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width:36px; height:36px; font-size:0.85rem;">
+                                                @dp.Developer.FullName.Substring(0, 1)
+                                            </div>
+                                            <div>
+                                                <strong class="text-dark">@dp.Developer.FullName</strong>
+                                                <small class="text-muted d-block" style="font-size:0.75rem;">
+                                                    <i class="bi bi-calendar-event me-1"></i> @dp.Date.ToString("dd.MM.yyyy")
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-success-subtle text-success border border-success px-3 py-2 rounded-pill fw-bold">
+                                            <i class="bi bi-clock-history me-1"></i> %@dp.ProgressPercent İlerleme
+                                        </span>
+                                    </div>
+                                    <p class="mb-2 text-dark fw-bold" style="font-size: 0.9rem;">
+                                        <i class="bi bi-check2-circle text-primary me-1"></i> Görev: @dp.Task.Title
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(dp.Notes))
+                                    {
+                                        <div class="p-2 bg-light rounded text-muted small border mb-2">
+                                            <i class="bi bi-chat-left-text me-1"></i> <strong>Not:</strong> @dp.Notes
+                                        </div>
+                                    }
+                                    <div class="text-end text-muted small">
+                                        <i class="bi bi-hourglass-split me-1"></i> Çalışma Süresi: <strong>@dp.HoursWorked.ToString("N1") Saat</strong>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-light border text-center py-4">
+                            <i class="bi bi-clock-history fs-3 d-block mb-2 text-muted"></i>
+                            <p class="text-muted mb-0">Seçilen tarihe ait kaydedilmiş günlük çalışma kaydı bulunmamaktadır.</p>
                         </div>
                     }
                 </div>
@@ -819,6 +1116,333 @@
             </div>
         </div>
 
+        <!-- ================================================================ -->
+        <!-- SEKME 6: SPRINT GÜNLÜK RAPORLARI -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "report" ? "show active" : "")" id="pane-report" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1"><i class="bi bi-file-earmark-bar-graph-fill text-primary me-2"></i> Sprint Günlük Raporları</h5>
+                    <p class="text-muted small mb-0">Tüm sprintlerin gün gün neler yaptığını gösteren detaylı ekosistem raporu.</p>
+                </div>
+                <span class="badge bg-primary px-3 py-2 rounded-pill fw-bold">Rapor Modülü</span>
+            </div>
+
+            <!-- PROJE SONU FİNANSAL DURUM KARTI -->
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="p-3 bg-light rounded-3 border border-start border-success border-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1"><i class="bi bi-flag-fill text-success me-2"></i> Projenin Nihai Kapanış Durumu (Proje Sonu Hedefleri)</h6>
+                            <p class="text-muted mb-0 small">Proje tamamlandığında elde edilecek toplam maliyet ve kâr dağılımı özetidir.</p>
+                        </div>
+                        <div class="d-flex gap-4 text-center">
+                            <div>
+                                <small class="text-muted d-block" style="font-size:0.75rem;">Toplam Gelir (Ciro)</small>
+                                <span class="fw-bold text-success fs-5">@Model.ProjectRevenue.ToString("N0") ₺</span>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block" style="font-size:0.75rem;">Toplam Dağıtılan Maaş</small>
+                                <span class="fw-bold text-danger fs-5">@Model.EarnedPayroll.ToString("N0") ₺</span>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block" style="font-size:0.75rem;">Toplam Operasyon Gideri</small>
+                                <span class="fw-bold text-danger fs-5">@Model.OperationalExpenses.ToString("N0") ₺</span>
+                            </div>
+                            <div>
+                                <small class="text-success d-block fw-bold" style="font-size:0.75rem;">Nihai Net Şirket Kârı</small>
+                                <span class="fw-bold text-dark fs-4">@Model.NetCompanyProfit.ToString("N0") ₺</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.SprintDailyReports.Any())
+            {
+                <div class="accordion" id="reportAccordion">
+                    @foreach (var report in Model.SprintDailyReports)
+                    {
+                        string accId = "report" + report.SprintName.Replace(" ", "");
+                        <div class="accordion-item border mb-3 rounded-3 overflow-hidden shadow-sm">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-3" type="button" data-bs-toggle="collapse" data-bs-target="#@accId">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="badge bg-primary text-white px-3 py-2 rounded-pill fs-6">@report.SprintName</span>
+                                        <span class="fs-6 fw-semibold">Günlük Aktivite Log Dökümü</span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="@accId" class="accordion-collapse collapse" data-bs-parent="#reportAccordion">
+                                <div class="accordion-body bg-light-subtle p-4">
+                                    
+                                    @if (report.DailyGroups.Any())
+                                    {
+                                        foreach (var dayGroup in report.DailyGroups.OrderBy(dg => dg.Date))
+                                        {
+                                            <div class="mb-4 p-3 bg-white border rounded shadow-sm">
+                                                <h6 class="fw-bold text-primary mb-3 pb-2 border-bottom border-primary border-opacity-25">
+                                                    <i class="bi bi-calendar-check-fill me-2"></i> @dayGroup.Date.ToString("dd MMMM yyyy, dddd")
+                                                </h6>
+                                                
+                                                <!-- O Günün Proje Durumu ve Finansal Metrikleri -->
+                                                <div class="row g-2 mb-3 text-center">
+                                                    <div class="col-md-3">
+                                                        <div class="p-2 border rounded bg-light">
+                                                            <small class="text-muted d-block" style="font-size:0.7rem;">Günlük Proje İlerlemesi</small>
+                                                            <strong class="text-primary" style="font-size: 0.9rem;">%@dayGroup.CumulativeProgress.ToString("N1")</strong>
+                                                            <span class="d-block text-muted" style="font-size: 0.65rem;">@dayGroup.ProjectStatusDescription</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="p-2 border rounded bg-light">
+                                                            <small class="text-muted d-block" style="font-size:0.7rem;">O Gün Hak Edilen Maaş</small>
+                                                            <strong class="text-warning" style="font-size: 0.9rem;">@dayGroup.DailySalaryPaid.ToString("N0") ₺</strong>
+                                                            <span class="d-block text-muted" style="font-size: 0.65rem;">Geliştirici efor maliyeti</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="p-2 border rounded bg-light">
+                                                            <small class="text-muted d-block" style="font-size:0.7rem;">Kümülatif Dağıtılan Maaş</small>
+                                                            <strong class="text-danger" style="font-size: 0.9rem;">@dayGroup.CumulativeSalaryPaid.ToString("N0") ₺</strong>
+                                                            <span class="d-block text-muted" style="font-size: 0.65rem;">Proje başından beri</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="p-2 border rounded bg-light">
+                                                            <small class="text-muted d-block" style="font-size:0.7rem;">Kümülatif Proje Kazancı</small>
+                                                            <strong class="text-success" style="font-size: 0.9rem;">@dayGroup.CumulativeRevenue.ToString("N0") ₺</strong>
+                                                            <span class="d-block text-muted" style="font-size: 0.65rem;">Ciro payı hak edişi</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.85rem;">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th style="width: 20%;">Geliştirici</th>
+                                                                <th style="width: 35%;">Görev</th>
+                                                                <th style="width: 15%;" class="text-center">İlerleme</th>
+                                                                <th style="width: 10%;" class="text-center">Efor (Saat)</th>
+                                                                <th style="width: 20%;">Çalışma Detayı / Notlar</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var progress in dayGroup.Progresses)
+                                                            {
+                                                                <tr>
+                                                                    <td class="fw-bold">
+                                                                        <i class="bi bi-person-circle text-secondary me-1"></i> @progress.Developer.FullName
+                                                                    </td>
+                                                                    <td class="text-dark fw-semibold">@progress.Task.Title</td>
+                                                                    <td class="text-center">
+                                                                        <div class="d-flex align-items-center gap-2 justify-content-center">
+                                                                            <div class="progress flex-grow-1" style="height: 14px; max-width: 60px;">
+                                                                                <div class="progress-bar @(progress.ProgressPercent >= 100 ? "bg-success" : progress.ProgressPercent >= 50 ? "bg-info" : "bg-warning")" style="width: @progress.ProgressPercent%">
+                                                                                </div>
+                                                                            </div>
+                                                                            <span class="fw-bold text-dark">%@progress.ProgressPercent</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td class="text-center fw-bold text-info">@progress.HoursWorked.ToString("N1") Saat</td>
+                                                                    <td class="text-muted italic">@(progress.Notes ?? "-")</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <div class="alert alert-light border small text-muted text-center mb-0">Bu sprint içerisinde kaydedilmiş günlük çalışma kaydı bulunmamaktadır.</div>
+                                    }
+
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border text-center py-5">
+                    <i class="bi bi-file-earmark-break fs-1 d-block mb-2 text-muted"></i>
+                    <p class="text-muted mb-0">Henüz kaydedilmiş günlük sprint raporu bulunmamaktadır.</p>
+                </div>
+            }
+        </div>
+
+        <!-- ================================================================ -->
+        <!-- SEKME 7: GENEL PROJE RAPORU -->
+        <!-- ================================================================ -->
+        <div class="tab-pane fade @(activeTab == "general" ? "show active" : "")" id="pane-general" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                <div>
+                    <h4 class="fw-bold text-dark mb-1"><i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i> Proje Kapanış & Nihai Yönetici Raporu</h4>
+                    <p class="text-muted small mb-0">CafeBoard sisteminin baştan sona (10.04.2026 - 07.05.2026) tüm gelişim, efor ve bütçe özet dökümü.</p>
+                </div>
+                <button onclick="window.print()" class="btn btn-outline-dark btn-sm fw-bold px-3"><i class="bi bi-printer me-1"></i> Raporu Yazdır</button>
+            </div>
+
+            <!-- Proje Kimlik Kartı -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="p-4 bg-light rounded-3 border h-100">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle text-primary me-2"></i> Proje Tanım Bilgileri</h6>
+                        <table class="table table-sm table-borderless mb-0" style="font-size:0.9rem;">
+                            <tr><td class="text-muted" style="width: 40%;">Proje Adı:</td><td class="fw-bold">CafeBoard Kafe Yönetim Platformu</td></tr>
+                            <tr><td class="text-muted">Geliştirme Takvimi:</td><td class="fw-bold">10 Nisan 2026 - 07 Mayıs 2026 (4 Hafta)</td></tr>
+                            <tr><td class="text-muted">Toplam İş Gücü:</td><td class="fw-bold">@Model.AllDevelopers.Count Aktif Geliştirici</td></tr>
+                            <tr><td class="text-muted">Proje Statüsü:</td><td><span class="badge bg-success">Tamamlandı & Teslim Edildi</span></td></tr>
+                            <tr><td class="text-muted">Genel İlerleme:</td><td><span class="badge bg-primary">%@Model.OverallProgressPercent Proje Tamamlanma</span></td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-4 bg-light rounded-3 border h-100">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-success me-2"></i> İş Eforu & Görev Dağılımı</h6>
+                        <table class="table table-sm table-borderless mb-0" style="font-size:0.9rem;">
+                            <tr><td class="text-muted" style="width: 40%;">Toplam Kayıtlı Görev:</td><td class="fw-bold text-primary">@Model.TotalTasks Görev</td></tr>
+                            <tr><td class="text-muted">Tamamlanan Görevler:</td><td class="fw-bold text-success">@Model.CompletedTasks Görev (%@(Model.TotalTasks > 0 ? (Model.CompletedTasks * 100 / Model.TotalTasks) : 0))</td></tr>
+                            <tr><td class="text-muted">Devam Eden Görevler:</td><td class="fw-bold text-warning">@Model.InProgressCount Görev</td></tr>
+                            <tr><td class="text-muted">Toplam Sprint SP Eforu:</td><td class="fw-bold text-info">@Model.DeveloperEarnings.Sum(d => d.TotalSP) SP</td></tr>
+                            <tr><td class="text-muted">Ortalama Görev İlerlemesi:</td><td class="fw-bold text-dark">%@Model.OverallProgressPercent</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proje Finansal Bilançosu -->
+            <div class="bg-light p-4 rounded-3 border mb-4">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-wallet2 text-success me-2"></i> Proje Nihai Finansal Bilançosu</h6>
+                <div class="row g-3 text-center mb-3">
+                    <div class="col-md-3">
+                        <div class="p-3 bg-white rounded border">
+                            <small class="text-muted d-block mb-1">Toplam Proje Değeri (Ciro)</small>
+                            <h4 class="fw-bold text-success mb-0">@Model.ProjectRevenue.ToString("N0") ₺</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-white rounded border">
+                            <small class="text-muted d-block mb-1">Dağıtılan Personel Maaşları</small>
+                            <h4 class="fw-bold text-danger mb-0">-@Model.EarnedPayroll.ToString("N0") ₺</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-white rounded border">
+                            <small class="text-muted d-block mb-1">Operasyonel Giderler</small>
+                            <h4 class="fw-bold text-danger mb-0">-@Model.OperationalExpenses.ToString("N0") ₺</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-white rounded border border-success">
+                            <small class="text-success fw-bold d-block mb-1">Net Şirket Kârı</small>
+                            <h4 class="fw-bold text-dark mb-0">@Model.NetCompanyProfit.ToString("N0") ₺</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-success border small mb-0">
+                    <i class="bi bi-info-circle-fill me-1"></i> Projemizde elde edilen brüt kâr üzerinden <strong>%20 Kurumlar Vergisi (@Model.TaxAmount.ToString("N0") ₺)</strong> kesilerek maliye hazinesine aktarılmış ve geriye kalan <strong>@Model.NetCompanyProfit.ToString("N0") ₺</strong> net kazanç olarak şirket kasasına devredilmiştir.
+                </div>
+            </div>
+
+            <!-- Geliştirici Katkı ve Kazanç Özeti -->
+            <div class="card border mb-4">
+                <div class="card-header bg-dark text-white py-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-people-fill me-2"></i> Geliştirici Bazlı Katkı ve Maaş Hakediş Dağılımı</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle text-center mb-0" style="font-size:0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start ps-3">Geliştirici</th>
+                                    <th>Rol</th>
+                                    <th>Atanan Görev</th>
+                                    <th>Bitirilen Görev</th>
+                                    <th>Toplam Efor (SP)</th>
+                                    <th>Saatlik Ücret</th>
+                                    <th class="text-end pe-3">Hak Edilen Toplam Maaş</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var dev in Model.DeveloperEarnings)
+                                {
+                                    <tr>
+                                        <td class="text-start ps-3 fw-bold">@dev.Name</td>
+                                        <td><span class="badge bg-light text-dark border">@dev.Role</span></td>
+                                        <td class="fw-bold">@dev.TotalTaskCount</td>
+                                        <td class="text-success fw-bold">@dev.CompletedTaskCount</td>
+                                        <td class="fw-bold text-primary">@dev.TotalSP SP</td>
+                                        <td>@dev.HourlyRate.ToString("N0") ₺/s</td>
+                                        <td class="text-end pe-3 fw-bold text-success">@dev.TotalEarnings.ToString("N0") ₺</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sprint Bazlı Gelişim Seyri -->
+            <div class="card border mb-4">
+                <div class="card-header bg-dark text-white py-3">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2"></i> Projenin Sprint (Hafta) Bazlı Gelişim Seyri</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @foreach (var sprint in Model.SprintHistories)
+                        {
+                            <div class="col-md-6">
+                                <div class="p-3 border rounded bg-white">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge @sprint.BadgeClass px-3 py-1 rounded-pill">@sprint.SprintName</span>
+                                        <small class="text-muted"><i class="bi bi-calendar3 me-1"></i> @(sprint.StartDate?.ToString("dd.MM") ?? "-") - @(sprint.EndDate?.ToString("dd.MM") ?? "-")</small>
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-1">@sprint.PhaseTitle</h6>
+                                    <p class="text-muted small mb-2">Bu sprint kapsamında <strong>@sprint.TotalSprintTaskCount</strong> görev planlanmış ve <strong>@sprint.CompletedTasks.Count</strong> görev başarıyla tamamlanmıştır.</p>
+                                    
+                                    <div class="row g-2 mb-0 text-center" style="font-size: 0.8rem;">
+                                        <div class="col-4">
+                                            <div class="p-1 bg-light rounded text-muted">
+                                                <small class="d-block">Sprint Cirosu</small>
+                                                <strong class="text-success">@sprint.SprintRevenue.ToString("N0") ₺</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-1 bg-light rounded text-muted">
+                                                <small class="d-block">Sprint Gideri</small>
+                                                <strong class="text-danger">@sprint.SprintExpense.ToString("N0") ₺</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-1 bg-light rounded text-success fw-bold">
+                                                <small class="d-block">Net Kâr</small>
+                                                <strong class="text-dark">@sprint.SprintNetProfit.ToString("N0") ₺</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proje Tamamlanma Sonuç Bildirisi -->
+            <div class="p-4 bg-success-subtle text-success-emphasis rounded-3 border border-success border-opacity-25">
+                <h6 class="fw-bold mb-2"><i class="bi bi-award-fill me-2"></i> Proje Sonuç Bildirisi & Yönetici Değerlendirmesi</h6>
+                <p class="mb-0 small" style="line-height:1.5;">
+                    Bu proje, agile (çevik) yazılım geliştirme yöntemlerine uyumlu olarak 4 sprintlik (28 günlük) bir takvimde yönetilmiştir. 
+                    Veritabanı felaket kurtarma mimarisinden katı RBAC yetkilendirme katmanına, 3. parti entegrasyonlardan (Yemeksepeti / GetirYemek) gelişmiş finans analiz paneline kadar ana modüller başarıyla geliştirilmektedir.
+                    Geliştirici efor dağılımı adil saatlik hakedişler üzerinden yapılmış olup, bütçe yönetiminde <strong>@Model.NetCompanyProfit.ToString("N0") ₺</strong> kârlılık hedefine doğru kararlı adımlarla ilerlenmektedir. Platform, kalan görevlerin tamamlanmasıyla birlikte canlı ortama geçiş ve kullanıcı kabul testleri (UAT) aşamasındadır.
+                </p>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -891,5 +1515,57 @@
         0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.5); }
         70% { box-shadow: 0 0 0 8px rgba(13, 110, 253, 0); }
         100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); }
+    }
+    
+    .gantt-row {
+        transition: background-color 0.2s ease;
+    }
+    .gantt-row:hover {
+        background-color: rgba(0, 0, 0, 0.02) !important;
+    }
+    .border-dashed {
+        border-style: dashed !important;
+    }
+    .gantt-view-select {
+        border: 2px solid #212529 !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+        background-color: #fff !important;
+        color: #212529 !important;
+        font-size: 0.85rem !important;
+        padding: 6px 36px 6px 12px !important;
+    }
+    .gantt-filter-select {
+        border: 1px solid #dee2e6 !important;
+        border-radius: 8px !important;
+        background-color: #fff !important;
+        color: #495057 !important;
+        font-size: 0.85rem !important;
+        padding: 6px 36px 6px 12px !important;
+    }
+    .gantt-progress-bar {
+        height: 24px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.72rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .gantt-progress-bar:hover {
+        transform: scale(1.02);
+    }
+    .gantt-summary-bar {
+        height: 24px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.72rem;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
     }
 </style>

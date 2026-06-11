@@ -67,6 +67,14 @@ namespace CafeBoard.Pages
         public List<DeveloperEarningsDto> DeveloperEarnings { get; set; } = new();
         public List<SprintEarningRow> SprintEarningRows { get; set; } = new();
 
+        // === RAPORLAR VE YENİ METRİKLER ===
+        public List<CompletedThisWeekDto> CompletedThisWeek { get; set; } = new();
+        public List<SprintReportDto> SprintDailyReports { get; set; } = new();
+        public double SelectedDateProgress { get; set; }
+        public decimal SelectedDateRevenue { get; set; }
+        public decimal SelectedDateSalary { get; set; }
+        public string SelectedDateStatusDescription { get; set; } = "";
+
         // === BIND PROPERTIES (Form) ===
         [BindProperty]
         public string? NewDevName { get; set; }
@@ -133,6 +141,27 @@ namespace CafeBoard.Pages
                         .AsNoTracking()
                         .ToListAsync();
                 }
+            }
+
+            // Seeding if database has no progress or is incomplete (less than 150 entries for all dates)
+            var progressCount = await _context.DailyProgresses.CountAsync();
+            if (progressCount < 150)
+            {
+                // Clear old sparse records if any
+                if (progressCount > 0)
+                {
+                    _context.DailyProgresses.RemoveRange(_context.DailyProgresses);
+                    await _context.SaveChangesAsync();
+                }
+
+                await SeedDailyProgressesAsync();
+                
+                // Re-fetch tasks after seeding because start/deadline dates were aligned inside SeedDailyProgressesAsync
+                tasks = await _context.CafeTasks
+                    .Include(t => t.Developer)
+                    .Where(t => t.IsDeleted == false)
+                    .AsNoTracking()
+                    .ToListAsync();
             }
 
             AllTasks = tasks;
@@ -391,9 +420,11 @@ namespace CafeBoard.Pages
                 progressQuery = progressQuery.Where(dp => dp.DeveloperId == FilterDeveloperId);
             }
 
-            if (!string.IsNullOrEmpty(FilterDate) && DateTime.TryParse(FilterDate, out var filterDateParsed))
+            DateTime? filterDateParsed = ParseDate(FilterDate);
+            if (filterDateParsed.HasValue)
             {
-                progressQuery = progressQuery.Where(dp => dp.Date.Date == filterDateParsed.Date);
+                FilterDate = filterDateParsed.Value.ToString("yyyy-MM-dd");
+                progressQuery = progressQuery.Where(dp => dp.Date.Date == filterDateParsed.Value.Date);
             }
 
             DailyProgressList = await progressQuery
@@ -401,6 +432,142 @@ namespace CafeBoard.Pages
                 .ThenByDescending(dp => dp.CreatedDate)
                 .Take(100)
                 .ToListAsync();
+
+            // === BU HAFTA BİTENLER VE GÜNLÜK SPRINT RAPORLARI ===
+            var activeSprintName = SprintHistories.FirstOrDefault(s => s.IsActive)?.SprintName ?? "Sprint 4";
+            CompletedThisWeek = tasks
+                .Where(t => t.Sprint == activeSprintName && t.Status == "Done" && t.Developer != null)
+                .Select(t => new CompletedThisWeekDto
+                {
+                    DeveloperName = t.Developer!.FullName,
+                    Role = t.Developer.Role,
+                    TaskTitle = t.Title,
+                    StoryPoints = t.StoryPoints ?? 3
+                })
+                .ToList();
+
+            var allProgresses = await _context.DailyProgresses
+                .Include(dp => dp.Task)
+                .Include(dp => dp.Developer)
+                .AsNoTracking()
+                .ToListAsync();
+
+            // Calculate daily metrics and cumulative metrics for every day in range
+            var devHourlyRates = finances.ToDictionary(f => f.DeveloperId, f => f.HourlyRate);
+            decimal GetHourlyRateLocal(int developerId) => devHourlyRates.TryGetValue(developerId, out var rate) ? rate : 350m;
+
+            var allDates = new List<DateTime>();
+            for (var d = new DateTime(2026, 4, 10); d <= new DateTime(2026, 5, 7); d = d.AddDays(1))
+            {
+                allDates.Add(d);
+            }
+
+            var progressByTaskAndDate = allProgresses
+                .GroupBy(dp => dp.TaskId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(dp => dp.Date).ToList()
+                );
+
+            var dailyMetrics = new Dictionary<DateTime, (double Progress, decimal Revenue, decimal CumulativeSalary)>();
+            decimal cumulativeSalary = 0;
+
+            foreach (var date in allDates)
+            {
+                var dailyProgForDate = allProgresses.Where(dp => dp.Date.Date == date.Date).ToList();
+                decimal dailySalary = dailyProgForDate.Sum(dp => dp.HoursWorked * GetHourlyRateLocal(dp.DeveloperId));
+                cumulativeSalary += dailySalary;
+
+                double totalProgress = 0;
+                foreach (var t in tasks)
+                {
+                    var lastProgBeforeOrOnDate = progressByTaskAndDate.TryGetValue(t.TaskId, out var l)
+                        ? l.LastOrDefault(dp => dp.Date.Date <= date.Date)
+                        : null;
+                        
+                    int progressOnDate = 0;
+                    if (lastProgBeforeOrOnDate != null)
+                    {
+                        progressOnDate = lastProgBeforeOrOnDate.ProgressPercent;
+                    }
+                    else
+                    {
+                        progressOnDate = 0;
+                    }
+                    totalProgress += progressOnDate;
+                }
+
+                double avgProgress = tasks.Count > 0 ? (totalProgress / tasks.Count) : 0;
+                avgProgress = Math.Round(avgProgress, 1);
+
+                decimal revenue = Math.Round(1500000m * (decimal)(avgProgress / 100.0), 2);
+
+                dailyMetrics[date.Date] = (avgProgress, revenue, cumulativeSalary);
+            }
+
+            // Populate selected date metrics if date filter is active
+            if (filterDateParsed.HasValue)
+            {
+                var queryD = filterDateParsed.Value.Date;
+                if (dailyMetrics.TryGetValue(queryD, out var m))
+                {
+                    SelectedDateProgress = m.Item1;
+                    SelectedDateRevenue = m.Item2;
+                    SelectedDateSalary = m.Item3;
+                    SelectedDateStatusDescription = m.Item1 switch
+                    {
+                        < 20 => "Aşama 1: Altyapı ve Veritabanı Tasarım Aşaması",
+                        < 45 => "Aşama 2: Çekirdek Algoritmalar ve İş Kuralları Geliştirme",
+                        < 70 => "Aşama 3: Güvenlik, RBAC Zırhı ve Entegrasyonlar",
+                        _ => "Aşama 4: Canlı Ortam Kurulumu ve Yayına Geçiş Testleri"
+                    };
+                }
+                else
+                {
+                    SelectedDateProgress = 0;
+                    SelectedDateRevenue = 0;
+                    SelectedDateSalary = 0;
+                    SelectedDateStatusDescription = "Planlama Aşaması";
+                }
+            }
+
+            // Populate Sprint Daily Reports with rich daily and cumulative metrics
+            SprintDailyReports = allProgresses
+                .Where(dp => dp.Task != null && !string.IsNullOrEmpty(dp.Task.Sprint))
+                .GroupBy(dp => dp.Task!.Sprint!)
+                .Select(sg => new SprintReportDto
+                {
+                    SprintName = sg.Key,
+                    DailyGroups = sg
+                        .GroupBy(dp => dp.Date.Date)
+                        .Select(dg => {
+                            var date = dg.Key;
+                            var metrics = dailyMetrics.ContainsKey(date) ? dailyMetrics[date] : (0.0, 0m, 0m);
+                            
+                            string statusDesc = metrics.Item1 switch
+                            {
+                                < 20 => "Aşama 1: Altyapı ve Veritabanı Tasarımı",
+                                < 45 => "Aşama 2: Çekirdek Algoritmalar",
+                                < 70 => "Aşama 3: Güvenlik ve RBAC Zırhı",
+                                _ => "Aşama 4: Canlı Ortam Kurulumu ve Test"
+                            };
+
+                            return new DailyReportGroupDto
+                            {
+                                Date = date,
+                                Progresses = dg.OrderByDescending(dp => dp.CreatedDate).ToList(),
+                                DailySalaryPaid = dg.Sum(dp => dp.HoursWorked * GetHourlyRateLocal(dp.DeveloperId)),
+                                CumulativeSalaryPaid = metrics.Item3,
+                                CumulativeRevenue = metrics.Item2,
+                                CumulativeProgress = metrics.Item1,
+                                ProjectStatusDescription = statusDesc
+                            };
+                        })
+                        .OrderBy(dg => dg.Date)
+                        .ToList()
+                })
+                .OrderBy(sr => sr.SprintName)
+                .ToList();
         }
 
         // === KİŞİ EKLEME ===
@@ -521,6 +688,139 @@ namespace CafeBoard.Pages
             // Resetleme mantığı aynı
             return RedirectToPage();
         }
+
+        private async Task SeedDailyProgressesAsync()
+        {
+            var tasks = await _context.CafeTasks.ToListAsync();
+            var random = new Random();
+
+            foreach (var task in tasks)
+            {
+                if (task.DeveloperId == null) continue;
+
+                // Determine date range based on Sprint
+                DateTime start;
+                DateTime end;
+
+                if (task.Sprint == "Sprint 1")
+                {
+                    start = new DateTime(2026, 4, 10);
+                    end = new DateTime(2026, 4, 16);
+                }
+                else if (task.Sprint == "Sprint 2")
+                {
+                    start = new DateTime(2026, 4, 17);
+                    end = new DateTime(2026, 4, 23);
+                }
+                else if (task.Sprint == "Sprint 3")
+                {
+                    start = new DateTime(2026, 4, 24);
+                    end = new DateTime(2026, 4, 30);
+                }
+                else // Sprint 4 or other
+                {
+                    start = new DateTime(2026, 5, 1);
+                    end = new DateTime(2026, 5, 7);
+                }
+
+                // Aligned StartDate and Deadline with Sprints
+                task.StartDate = start;
+                task.Deadline = end;
+
+                // Seed logs for EVERY day of the 7-day sprint
+                for (int dayIndex = 1; dayIndex <= 7; dayIndex++)
+                {
+                    DateTime logDate = start.AddDays(dayIndex - 1);
+
+                    int progressPercent = 0;
+                    if (task.Status == "Done")
+                    {
+                        progressPercent = dayIndex switch
+                        {
+                            1 => 15,
+                            2 => 30,
+                            3 => 45,
+                            4 => 60,
+                            5 => 75,
+                            6 => 90,
+                            _ => 100
+                        };
+                    }
+                    else if (task.Status == "In Progress")
+                    {
+                        int targetProgress = task.ProgressPercent > 0 ? task.ProgressPercent : 50;
+                        progressPercent = (dayIndex * targetProgress) / 7;
+                        if (progressPercent == 0) progressPercent = dayIndex * 5;
+                    }
+                    else // To-Do
+                    {
+                        progressPercent = 0;
+                    }
+
+                    string notes = dayIndex switch
+                    {
+                        1 => $"Geliştirici göreve başladı. Gereksinimler incelendi ve teknik mimari tasarlandı.",
+                        2 => $"Modülün veritabanı şeması oluşturuldu ve ilişkili tablolar bağlandı.",
+                        3 => $"İş kuralları ve doğrulama mekanizmaları kodlanmaya başlandı.",
+                        4 => $"Backend servis entegrasyonu tamamlandı, ilk birim testleri yapıldı.",
+                        5 => $"Arayüz entegrasyonu yapıldı ve veri akış kontrolleri tamamlandı.",
+                        6 => $"Hata ayıklama süreci bitirildi, kod gözden geçirme (PR) onaylandı.",
+                        _ => task.Status == "Done" 
+                             ? "Tüm testler ve UAT onayları alınarak canlıya geçiş tamamlandı." 
+                             : "QA test geri bildirimleri doğrultusunda iyileştirmeler yapılıyor."
+                    };
+
+                    decimal hoursWorked = task.Status != "To-Do" 
+                        ? (random.Next(3, 6) + (decimal)Math.Round(random.NextDouble(), 1))
+                        : 0m;
+
+                    _context.DailyProgresses.Add(new DailyProgress
+                    {
+                        TaskId = task.TaskId,
+                        DeveloperId = task.DeveloperId.Value,
+                        Date = logDate.Date,
+                        ProgressPercent = Math.Clamp(progressPercent, 0, 100),
+                        Notes = task.Status != "To-Do" ? notes : "Görev planlandı, başlama tarihi bekleniyor.",
+                        HoursWorked = hoursWorked,
+                        CreatedDate = logDate.AddHours(random.Next(9, 17))
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        public static DateTime? ParseDate(string? dateStr)
+        {
+            if (string.IsNullOrEmpty(dateStr)) return null;
+
+            // 1. Try yyyy-MM-dd (standard HTML date input format)
+            if (DateTime.TryParseExact(dateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d1))
+                return d1;
+
+            // 2. Try dd.MM.yyyy (Turkish format with dots)
+            if (DateTime.TryParseExact(dateStr, "dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d2))
+                return d2;
+
+            // 3. Try d.M.yyyy (Turkish format without leading zeros)
+            if (DateTime.TryParseExact(dateStr, "d.M.yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d3))
+                return d3;
+
+            // 4. Try dd/MM/yyyy (slash separator)
+            if (DateTime.TryParseExact(dateStr, "dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d4))
+                return d4;
+
+            // 5. Try using Turkish culture explicitly
+            var turkishCulture = new System.Globalization.CultureInfo("tr-TR");
+            if (DateTime.TryParse(dateStr, turkishCulture, System.Globalization.DateTimeStyles.None, out var d5))
+                return d5;
+
+            // 6. Fallback to default TryParse
+            if (DateTime.TryParse(dateStr, out var d6))
+                return d6;
+
+            return null;
+        }
     }
 
     // === DTO SINIFLAR ===
@@ -595,5 +895,30 @@ namespace CafeBoard.Pages
         public bool IsActive { get; set; }
         public Dictionary<string, decimal> DeveloperEarnings { get; set; } = new();
         public decimal TotalSprintEarning { get; set; }
+    }
+
+    public class CompletedThisWeekDto
+    {
+        public string DeveloperName { get; set; }
+        public string Role { get; set; }
+        public string TaskTitle { get; set; }
+        public int StoryPoints { get; set; }
+    }
+
+    public class SprintReportDto
+    {
+        public string SprintName { get; set; }
+        public List<DailyReportGroupDto> DailyGroups { get; set; } = new();
+    }
+
+    public class DailyReportGroupDto
+    {
+        public DateTime Date { get; set; }
+        public List<DailyProgress> Progresses { get; set; } = new();
+        public decimal DailySalaryPaid { get; set; }
+        public decimal CumulativeSalaryPaid { get; set; }
+        public decimal CumulativeRevenue { get; set; }
+        public double CumulativeProgress { get; set; }
+        public string ProjectStatusDescription { get; set; } = "";
     }
 }
